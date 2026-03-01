@@ -1,4 +1,6 @@
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = "https://olxqpibwexdpluthrqvb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9seHFwaWJ3ZXhkcGx1dGhycXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNzQ5MjYsImV4cCI6MjA4Nzk1MDkyNn0.okbZVJbiE7sg4B1Jd0BmJYeGfVOQ3EoO26QVOhsfAy4";
+const _supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const STRAVA_CLIENT_ID = "207086";
 const STRAVA_CLIENT_SECRET = "759c953db887babbfc676ae8acab74238ae40ce5";
@@ -12,18 +14,30 @@ const app = {
     currentMapPolyline: null,
 
     async init() {
-        this.checkAuth();
-        await this.fetchData();
-        await this.handleStravaCallback();
-        this.navigate('home');
+        try {
+            this.checkAuth();
+            await this.fetchData();
+            await this.handleStravaCallback();
+        } catch (e) {
+            console.error("Initialization error:", e);
+        } finally {
+            this.navigate('home');
+        }
     },
 
     async fetchData() {
-        const { data: users } = await _supabase.from('biku_users').select('*');
-        const { data: records } = await _supabase.from('biku_records').select('*').order('created_at', { ascending: false });
+        try {
+            const { data: users, error: userError } = await _supabase.from('biku_users').select('*');
+            if (userError) console.warn("Supabase users fetch error:", userError);
 
-        this.users = users || [];
-        this.records = records || [];
+            const { data: records, error: recordError } = await _supabase.from('biku_records').select('*').order('created_at', { ascending: false });
+            if (recordError) console.warn("Supabase records fetch error:", recordError);
+
+            this.users = users || [];
+            this.records = records || [];
+        } catch (e) {
+            console.error("fetchData failed:", e);
+        }
     },
 
     checkAuth() {
@@ -410,6 +424,7 @@ const app = {
             `).join('') || '<tr><td colspan="2">유저가 없습니다.</td></tr>';
         }
 
+        const recordTbody = document.getElementById('admin-record-table-body');
         if (recordTbody) {
             recordTbody.innerHTML = this.records.map((r, i) => {
                 let statusInfo = '';
