@@ -27,10 +27,17 @@ const app = {
     },
 
     ensureAdmin() {
-        // Ensure admin account always exists in the users list
-        const adminExists = this.users.find(u => u.username === 'admin');
-        if (!adminExists) {
-            this.users.push({ username: 'admin', password: 'admin1234', isAdmin: true });
+        // Ensure admin account always exists and has the correct password
+        let adminAccount = this.users.find(u => u.username === 'admin');
+
+        if (!adminAccount) {
+            adminAccount = { username: 'admin', password: 'admin1234', isAdmin: true };
+            this.users.push(adminAccount);
+            localStorage.setItem('biku_users', JSON.stringify(this.users));
+        } else if (adminAccount.password !== 'admin1234') {
+            // Update password if it doesn't match the new standard
+            adminAccount.password = 'admin1234';
+            adminAccount.isAdmin = true; // Ensure flag is set
             localStorage.setItem('biku_users', JSON.stringify(this.users));
         }
     },
