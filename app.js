@@ -4,7 +4,7 @@ const _supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, S
 
 const STRAVA_CLIENT_ID = "207086";
 const STRAVA_CLIENT_SECRET = "759c953db887babbfc676ae8acab74238ae40ce5";
-const STRAVA_REDIRECT_URI = "https://ljw4123.github.io/BiKU-webpages/";
+const STRAVA_REDIRECT_URI = "https://ljw4123.github.io/BiKU-webpage/";
 
 const app = {
     user: null,
@@ -14,18 +14,21 @@ const app = {
     currentMapPolyline: null,
 
     async init() {
+        // UI를 먼저 표시하여 "먹통" 현상 방지
+        this.navigate('home');
+
         try {
             this.checkAuth();
             await this.fetchData();
             await this.handleStravaCallback();
         } catch (e) {
             console.error("Initialization error:", e);
-        } finally {
-            this.navigate('home');
         }
     },
 
     async fetchData() {
+        if (!_supabase) return console.error("Supabase client is not initialized.");
+
         try {
             const { data: users, error: userError } = await _supabase.from('biku_users').select('*');
             if (userError) console.warn("Supabase users fetch error:", userError);
