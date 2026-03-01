@@ -235,8 +235,12 @@ const app = {
             const avgSpeed = (activity.average_speed * 3.6).toFixed(1);
             const maxSpeed = (activity.max_speed * 3.6).toFixed(1);
 
+            // Format start_date_local for datetime-local input (YYYY-MM-DDTHH:mm)
+            const startDate = activity.start_date_local ? activity.start_date_local.substring(0, 16) : '';
+
             // Populate and make read-only
             const fields = [
+                { id: 'ride-date', val: startDate },
                 { id: 'ride-distance', val: dist },
                 { id: 'ride-elevation', val: elev },
                 { id: 'ride-time', val: timeMins },
@@ -346,7 +350,7 @@ const app = {
         this.currentStravaData = null;
 
         // Reset read-only status and values
-        const ids = ['ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
+        const ids = ['ride-date', 'ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -371,13 +375,14 @@ const app = {
     async submitRecord() {
         if (!this.user) return alert('로그인이 필요합니다.');
 
+        const rideDate = document.getElementById('ride-date').value;
         const distance = parseFloat(document.getElementById('ride-distance').value);
         const elevation = parseFloat(document.getElementById('ride-elevation').value);
         const movingTimeMins = parseFloat(document.getElementById('ride-time').value) || 0;
         const avgSpeed = parseFloat(document.getElementById('ride-avg-speed').value) || 0;
         const maxSpeed = parseFloat(document.getElementById('ride-max-speed').value) || 0;
 
-        if (isNaN(distance) || isNaN(elevation)) return alert('거리와 고도를 입력해주세요.');
+        if (!rideDate || isNaN(distance) || isNaN(elevation)) return alert('일시, 거리, 고도를 입력해주세요.');
 
         const isStrava = !!this.currentMapPolyline;
         const status = isStrava ? 'approved' : 'pending';
@@ -393,13 +398,14 @@ const app = {
                 moving_time: movingTimeMins * 60,
                 average_speed: Number(avgSpeed),
                 max_speed: Number(maxSpeed),
-                status
+                status,
+                created_at: new Date(rideDate).toISOString()
             }]);
 
         if (error) return alert('기록 저장 중 오류가 발생했습니다.');
 
         // Success cleanup
-        const ids = ['ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
+        const ids = ['ride-date', 'ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
