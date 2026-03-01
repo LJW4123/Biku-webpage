@@ -12,6 +12,7 @@ const app = {
     records: [],
     posts: [],
     comments: [],
+    currentPostId: null,
     currentStravaToken: null,
     currentMapPolyline: null,
     currentStravaData: null,
@@ -472,6 +473,7 @@ const app = {
     },
 
     async renderPostDetail(postId) {
+        this.currentPostId = postId;
         await this.fetchData();
         const post = this.posts.find(p => p.id === postId);
         if (!post) return this.navigate('community');
@@ -546,7 +548,7 @@ const app = {
     async submitComment() {
         if (!this.user) return alert('로그인이 필요합니다.');
         const content = document.getElementById('comment-input').value;
-        const postId = this.posts.find(p => document.getElementById('post-detail-container').innerHTML.includes(p.title)).id;
+        const postId = this.currentPostId;
 
         if (!content) return;
 

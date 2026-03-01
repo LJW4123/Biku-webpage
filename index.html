@@ -203,7 +203,8 @@
                     <!-- Comments -->
                 </div>
                 <div class="form-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                    <input type="text" id="comment-input" placeholder="댓글을 입력하세요..." style="flex: 1;">
+                    <input type="text" id="comment-input" placeholder="댓글을 입력하세요..." style="flex: 1;"
+                        onkeypress="if(event.key === 'Enter') app.submitComment()">
                     <button class="btn btn-primary" onclick="app.submitComment()">등록</button>
                 </div>
             </div>
