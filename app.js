@@ -145,10 +145,12 @@ const app = {
 
         const reader = new FileReader();
         reader.onload = (e) => {
+            const imageData = e.target.result;
             const preview = document.getElementById('image-preview');
-            preview.src = e.target.result;
+            preview.src = imageData;
             document.getElementById('preview-container').style.display = 'block';
             document.getElementById('upload-placeholder').style.display = 'none';
+            this.currentUploadImage = imageData; // Store image data temporarily
             this.simulateExtraction();
         };
         reader.readAsDataURL(file);
@@ -157,18 +159,23 @@ const app = {
     simulateExtraction() {
         document.getElementById('upload-area').style.pointerEvents = 'none';
         document.getElementById('extraction-status').style.display = 'block';
+        document.getElementById('record-form').style.display = 'none';
+
+        // More realistic "precision" simulation
+        const delay = 1500 + Math.random() * 2000;
 
         setTimeout(() => {
-            // Simulated extraction results
-            const randomDist = (Math.random() * 50 + 10).toFixed(1);
-            const randomElev = Math.floor(Math.random() * 800 + 100);
+            // Simulated extraction logic that feels more "precise"
+            const distBase = 20 + Math.random() * 40;
+            const elevBase = 100 + Math.random() * 500;
 
-            document.getElementById('ride-distance').value = randomDist;
-            document.getElementById('ride-elevation').value = randomElev;
+            document.getElementById('ride-distance').value = distBase.toFixed(2);
+            document.getElementById('ride-elevation').value = Math.round(elevBase);
 
             document.getElementById('extraction-status').style.display = 'none';
             document.getElementById('record-form').style.display = 'block';
-        }, 2000);
+            document.getElementById('upload-area').style.pointerEvents = 'auto';
+        }, delay);
     },
 
     resetUpload() {
@@ -187,13 +194,15 @@ const app = {
             username: this.user.username,
             distance,
             elevation,
+            image: this.currentUploadImage, // Add image data
             date: new Date().toISOString()
         };
 
         this.records.push(newRecord);
         localStorage.setItem('biku_records', JSON.stringify(this.records));
+        this.currentUploadImage = null; // Clear temporary storage
 
-        alert('기록이 저장되었습니다!');
+        alert('기록이 이미지와 함께 저장되었습니다!');
         this.navigate('dashboard');
     },
 
@@ -209,10 +218,13 @@ const app = {
 
         const list = document.getElementById('recent-records-list');
         list.innerHTML = userRecords.reverse().slice(0, 5).map(r => `
-            <div style="padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <span style="color: var(--secondary)">${r.distance}km</span> / 
-                <span>${r.elevation}m</span>
-                <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(r.date).toLocaleDateString()}</div>
+            <div style="padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 1rem;">
+                ${r.image ? `<img src="${r.image}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border);">` : '<div style="width: 50px; height: 50px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">No Pic</div>'}
+                <div>
+                    <span style="color: var(--secondary)">${r.distance}km</span> / 
+                    <span>${r.elevation}m</span>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(r.date).toLocaleDateString()}</div>
+                </div>
             </div>
         `).join('') || '<p style="color: var(--text-muted);">기록이 없습니다.</p>';
     },
@@ -274,10 +286,23 @@ const app = {
                     <td>${r.username}</td>
                     <td>${r.distance}km / ${r.elevation}m</td>
                     <td>${new Date(r.date).toLocaleDateString()}</td>
-                    <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteRecord(${i})">삭제</button></td>
+                    <td>
+                        <button class="btn" style="background: rgba(0,255,136,0.1); color: var(--secondary); padding: 0.5rem 1rem;" onclick="app.viewFullImage(${i})">사진</button>
+                        <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteRecord(${i})">삭제</button>
+                    </td>
                 </tr>
             `).join('') || '<tr><td colspan="4">기록이 없습니다.</td></tr>';
         }
+    },
+
+    viewFullImage(index) {
+        const record = this.records[index];
+        if (!record || !record.image) return alert('이미지가 없는 기록입니다.');
+
+        const win = window.open("");
+        win.document.write(`<img src="${record.image}" style="max-width:100%; height:auto; display: block; margin: 0 auto; background: #0a0a0a;">`);
+        win.document.title = `${record.username}의 라이딩 인증 사진`;
+        win.document.body.style.background = "#0a0a0a";
     },
 
     deleteUser(username) {
