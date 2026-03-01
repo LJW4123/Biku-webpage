@@ -12,6 +12,7 @@ const app = {
     records: [],
     currentStravaToken: null,
     currentMapPolyline: null,
+    currentStravaData: null,
 
     async init() {
         // UI를 먼저 표시하여 "먹통" 현상 방지
@@ -89,6 +90,7 @@ const app = {
             content.appendChild(template.content.cloneNode(true));
 
             if (view === 'dashboard') await this.renderDashboard();
+            if (view === 'my-records') await this.renderMyRecords();
             if (view === 'rankings') await this.renderRankings();
             if (view === 'admin') await this.renderAdmin();
         }
@@ -215,6 +217,13 @@ const app = {
             document.getElementById('ride-distance').value = (activity.distance / 1000).toFixed(2);
             document.getElementById('ride-elevation').value = Math.round(activity.total_elevation_gain);
 
+            // Store expanded data
+            this.currentStravaData = {
+                moving_time: activity.moving_time,
+                average_speed: (activity.average_speed * 3.6).toFixed(1),
+                max_speed: (activity.max_speed * 3.6).toFixed(1)
+            };
+
             document.getElementById('record-form').style.display = 'block';
             document.getElementById('upload-area').style.display = 'none';
             document.getElementById('strava-sync-section').style.display = 'none';
@@ -316,7 +325,10 @@ const app = {
                 distance,
                 elevation,
                 image: this.currentUploadImage,
-                map_polyline: this.currentMapPolyline, // Store map data
+                map_polyline: this.currentMapPolyline,
+                moving_time: this.currentStravaData ? this.currentStravaData.moving_time : 0,
+                average_speed: this.currentStravaData ? this.currentStravaData.average_speed : 0,
+                max_speed: this.currentStravaData ? this.currentStravaData.max_speed : 0,
                 status: 'pending'
             }]);
 
@@ -324,9 +336,10 @@ const app = {
 
         this.currentUploadImage = null;
         this.currentMapPolyline = null;
+        this.currentStravaData = null;
         alert('기록이 제출되었습니다! 스트라바 데이터가 포함되었습니다.');
         await this.fetchData();
-        this.navigate('dashboard');
+        this.navigate('my-records');
     },
 
     async renderDashboard() {
@@ -374,6 +387,94 @@ const app = {
                 }, 100);
             }
         });
+    },
+
+    async renderMyRecords() {
+        if (!this.user) return this.navigate('login');
+        await this.fetchData();
+        const userRecords = this.records.filter(r => r.username === this.user.username);
+        const container = document.getElementById('my-records-list');
+
+        if (container) {
+            container.innerHTML = userRecords.map((r, i) => {
+                let statusText = r.status === 'pending' ? '승인 대기' : (r.status === 'approved' ? '승인 완료' : '반려됨');
+                let statusColor = r.status === 'pending' ? '#ffcc00' : (r.status === 'approved' ? 'var(--secondary)' : '#ff4444');
+
+                return `
+                        <div class="glass card" onclick="app.openDetailModal('${r.id}')" style="cursor: pointer; padding: 1rem; transition: transform 0.2s;">
+                            <div id="my-map-thumb-${r.id}" style="height: 150px; border-radius: 10px; background: rgba(0,0,0,0.3); margin-bottom: 1rem; overflow: hidden; display: ${r.map_polyline && !r.image ? 'block' : 'none'}"></div>
+                            ${r.image ? `<img src="${r.image}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 10px; margin-bottom: 1rem;">` : ''}
+                            ${!r.image && !r.map_polyline ? `<div style="height: 150px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">No Media</div>` : ''}
+                            <div style="font-weight: 700; margin-bottom: 0.5rem;">${new Date(r.created_at).toLocaleDateString()} 라이딩</div>
+                            <div style="font-size: 0.9rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                                <span>${r.distance}km / ${r.elevation}m</span>
+                                <span style="color: ${statusColor}">${statusText}</span>
+                            </div>
+                        </div>
+                    `;
+            }).join('') || '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">아직 기록이 없습니다.</p>';
+
+            userRecords.forEach(r => {
+                if (r.map_polyline && !r.image) {
+                    setTimeout(() => {
+                        const thumb = L.map(`my-map-thumb-${r.id}`, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false }).setView([0, 0], 10);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(thumb);
+                        const coords = this.decodePolyline(r.map_polyline);
+                        const line = L.polyline(coords, { color: '#fc4c02' }).addTo(thumb);
+                        thumb.fitBounds(line.getBounds());
+                    }, 100);
+                }
+            });
+        }
+    },
+
+    openDetailModal(id) {
+        const r = this.records.find(rec => rec.id === id);
+        if (!r) return;
+
+        document.getElementById('detail-dist').innerText = r.distance;
+        document.getElementById('detail-elev').innerText = r.elevation;
+        document.getElementById('detail-avg-speed').innerText = r.average_speed || 0;
+        document.getElementById('detail-max-speed').innerText = r.max_speed || 0;
+
+        // Time format
+        const mins = Math.floor((r.moving_time || 0) / 60);
+        document.getElementById('detail-time').innerText = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+
+        const statusEl = document.getElementById('detail-status');
+        if (statusEl) {
+            statusEl.innerText = r.status === 'pending' ? '대기' : (r.status === 'approved' ? '승인' : '반려');
+            statusEl.style.color = r.status === 'pending' ? '#ffcc00' : (r.status === 'approved' ? 'var(--secondary)' : '#ff4444');
+        }
+
+        const mapDiv = document.getElementById('detail-map');
+        const imgEl = document.getElementById('detail-image');
+
+        if (mapDiv) mapDiv.style.display = 'none';
+        if (imgEl) imgEl.style.display = 'none';
+
+        if (r.image && imgEl) {
+            imgEl.src = r.image;
+            imgEl.style.display = 'block';
+        } else if (r.map_polyline && mapDiv) {
+            mapDiv.style.display = 'block';
+            setTimeout(() => {
+                if (this.detailMap) this.detailMap.remove();
+                this.detailMap = L.map('detail-map');
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.detailMap);
+                const coords = this.decodePolyline(r.map_polyline);
+                const line = L.polyline(coords, { color: '#fc4c02', weight: 5 }).addTo(this.detailMap);
+                this.detailMap.fitBounds(line.getBounds());
+            }, 100);
+        }
+
+        const modal = document.getElementById('record-detail-modal');
+        if (modal) modal.style.display = 'flex';
+    },
+
+    closeDetailModal() {
+        const modal = document.getElementById('record-detail-modal');
+        if (modal) modal.style.display = 'none';
     },
 
     async renderRankings() {
