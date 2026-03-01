@@ -100,6 +100,24 @@ nav {
     box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
 }
 
+.activity-item:hover {
+    transform: translateY(-5px);
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--secondary) !important;
+}
+
+#community-post-list .card:hover {
+    transform: scale(1.01);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+#comments-list>div:last-child {
+    border-bottom: none;
+}
+
 /* Auth Section */
 #auth-view {
     max-width: 400px;

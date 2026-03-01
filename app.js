@@ -10,6 +10,8 @@ const app = {
     user: null,
     users: [],
     records: [],
+    posts: [],
+    comments: [],
     currentStravaToken: null,
     currentMapPolyline: null,
     currentStravaData: null,
@@ -37,8 +39,16 @@ const app = {
             const { data: records, error: recordError } = await _supabase.from('biku_records').select('*').order('created_at', { ascending: false });
             if (recordError) console.warn("Supabase records fetch error:", recordError);
 
+            const { data: posts, error: postError } = await _supabase.from('biku_posts').select('*').order('created_at', { ascending: false });
+            if (postError) console.warn("Supabase posts fetch error:", postError);
+
+            const { data: comments, error: commentError } = await _supabase.from('biku_comments').select('*').order('created_at', { ascending: true });
+            if (commentError) console.warn("Supabase comments fetch error:", commentError);
+
             this.users = users || [];
             this.records = records || [];
+            this.posts = posts || [];
+            this.comments = comments || [];
         } catch (e) {
             console.error("fetchData failed:", e);
         }
@@ -90,6 +100,9 @@ const app = {
             content.appendChild(template.content.cloneNode(true));
 
             if (view === 'dashboard') await this.renderDashboard();
+            if (view === 'activity') await this.renderActivity();
+            if (view === 'community') await this.renderCommunity();
+            if (view.startsWith('post-')) await this.renderPostDetail(view.split('-')[1]);
             if (view === 'my-records') await this.renderMyRecords();
             if (view === 'rankings') await this.renderRankings();
             if (view === 'admin') await this.renderAdmin();
@@ -315,8 +328,14 @@ const app = {
 
         const distance = parseFloat(document.getElementById('ride-distance').value);
         const elevation = parseFloat(document.getElementById('ride-elevation').value);
+        const movingTimeMins = parseFloat(document.getElementById('ride-time').value) || 0;
+        const avgSpeed = parseFloat(document.getElementById('ride-avg-speed').value) || 0;
+        const maxSpeed = parseFloat(document.getElementById('ride-max-speed').value) || 0;
 
-        if (isNaN(distance) || isNaN(elevation)) return alert('올바른 값을 입력해주세요.');
+        if (isNaN(distance) || isNaN(elevation)) return alert('거리와 고도를 입력해주세요.');
+
+        const isStrava = !!this.currentMapPolyline;
+        const status = isStrava ? 'approved' : 'pending';
 
         const { error } = await _supabase
             .from('biku_records')
@@ -326,10 +345,10 @@ const app = {
                 elevation,
                 image: this.currentUploadImage,
                 map_polyline: this.currentMapPolyline,
-                moving_time: this.currentStravaData ? this.currentStravaData.moving_time : 0,
-                average_speed: this.currentStravaData ? this.currentStravaData.average_speed : 0,
-                max_speed: this.currentStravaData ? this.currentStravaData.max_speed : 0,
-                status: 'pending'
+                moving_time: this.currentStravaData ? this.currentStravaData.moving_time : (movingTimeMins * 60),
+                average_speed: this.currentStravaData ? this.currentStravaData.average_speed : avgSpeed,
+                max_speed: this.currentStravaData ? this.currentStravaData.max_speed : maxSpeed,
+                status
             }]);
 
         if (error) return alert('기록 저장 중 오류가 발생했습니다.');
@@ -337,7 +356,13 @@ const app = {
         this.currentUploadImage = null;
         this.currentMapPolyline = null;
         this.currentStravaData = null;
-        alert('기록이 제출되었습니다! 스트라바 데이터가 포함되었습니다.');
+
+        if (isStrava) {
+            alert('스트라바 기록이 인증되었습니다! (자동 승인 완료)');
+        } else {
+            alert('기록이 제출되었습니다! 관리자 승인 후 반영됩니다.');
+        }
+
         await this.fetchData();
         this.navigate('my-records');
     },
@@ -387,6 +412,160 @@ const app = {
                 }, 100);
             }
         });
+    },
+
+    async renderActivity() {
+        await this.fetchData();
+        const approvedRecords = this.records.filter(r => r.status === 'approved');
+        const container = document.getElementById('activity-feed-list');
+        if (!container) return;
+
+        container.innerHTML = approvedRecords.map(r => `
+            <div class="glass card" onclick="app.openDetailModal('${r.id}')" style="cursor: pointer; padding: 1rem; transition: transform 0.2s;">
+                <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem;">
+                    <div style="width: 35px; height: 35px; background: var(--secondary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem;">${r.username[0].toUpperCase()}</div>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.9rem;">${r.username}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(r.created_at).toLocaleDateString()}</div>
+                    </div>
+                </div>
+                <div id="activity-map-thumb-${r.id}" style="height: 150px; border-radius: 10px; background: rgba(0,0,0,0.3); margin-bottom: 1rem; overflow: hidden; display: ${r.map_polyline && !r.image ? 'block' : 'none'}"></div>
+                ${r.image ? `<img src="${r.image}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 10px; margin-bottom: 1rem;">` : ''}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600;">
+                    <span>${r.distance}km</span>
+                    <span style="color: var(--secondary)">${r.elevation}m ▲</span>
+                </div>
+            </div>
+        `).join('') || '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">아직 활동이 없습니다.</p>';
+
+        approvedRecords.forEach(r => {
+            if (r.map_polyline && !r.image) {
+                setTimeout(() => {
+                    const thumb = L.map(`activity-map-thumb-${r.id}`, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false }).setView([0, 0], 10);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(thumb);
+                    const coords = this.decodePolyline(r.map_polyline);
+                    const line = L.polyline(coords, { color: '#fc4c02' }).addTo(thumb);
+                    thumb.fitBounds(line.getBounds());
+                }, 100);
+            }
+        });
+    },
+
+    async renderCommunity() {
+        await this.fetchData();
+        const container = document.getElementById('community-post-list');
+        if (!container) return;
+
+        container.innerHTML = this.posts.map(p => `
+            <div class="glass card" onclick="app.navigate('post-${p.id}')" style="cursor: pointer; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3 style="margin-bottom: 0.4rem;">${p.title}</h3>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">
+                        ${p.username} • ${new Date(p.created_at).toLocaleDateString()} • 댓글 ${this.comments.filter(c => c.post_id === p.id).length}
+                    </div>
+                </div>
+                ${this.user && (this.user.is_admin || this.user.username === p.username) ? `
+                    <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem;" onclick="event.stopPropagation(); app.deletePost('${p.id}')">삭제</button>
+                ` : ''}
+            </div>
+        `).join('') || '<p style="text-align: center; color: var(--text-muted); padding: 3rem;">게시글이 없습니다.</p>';
+    },
+
+    async renderPostDetail(postId) {
+        await this.fetchData();
+        const post = this.posts.find(p => p.id === postId);
+        if (!post) return this.navigate('community');
+
+        const container = document.getElementById('post-detail-container');
+        container.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                <div>
+                    <h1 style="margin-bottom: 0.5rem;">${post.title}</h1>
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">작성자: ${post.username} | ${new Date(post.created_at).toLocaleString()}</div>
+                </div>
+                ${this.user && (this.user.is_admin || this.user.username === post.username) ? `
+                    <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444;" onclick="app.deletePost('${post.id}')">삭제</button>
+                ` : ''}
+            </div>
+            <div style="line-height: 1.8; white-space: pre-wrap; font-size: 1.1rem;">${post.content}</div>
+        `;
+
+        const commentsContainer = document.getElementById('comments-list');
+        const postComments = this.comments.filter(c => c.post_id === postId);
+        commentsContainer.innerHTML = postComments.map(c => `
+            <div style="padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.3rem;">${c.username}</div>
+                    <div style="font-size: 1rem;">${c.content}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">${new Date(c.created_at).toLocaleString()}</div>
+                </div>
+                ${this.user && (this.user.is_admin || this.user.username === c.username) ? `
+                    <button class="btn" style="background: rgba(255,0,0,0.05); color: #ff4444; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="app.deleteComment('${c.id}', '${postId}')">삭제</button>
+                ` : ''}
+            </div>
+        `).join('') || '<p style="color: var(--text-muted); padding: 1rem;">첫 댓글을 남겨보세요!</p>';
+    },
+
+    openPostModal() {
+        if (!this.user) return alert('로그인이 필요합니다.');
+        document.getElementById('post-modal').style.display = 'flex';
+    },
+
+    closePostModal() {
+        document.getElementById('post-modal').style.display = 'none';
+        document.getElementById('post-title').value = '';
+        document.getElementById('post-content').value = '';
+    },
+
+    async submitPost() {
+        const title = document.getElementById('post-title').value;
+        const content = document.getElementById('post-content').value;
+
+        if (!title || !content) return alert('제목과 내용을 입력해주세요.');
+
+        const { error } = await _supabase.from('biku_posts').insert([{
+            username: this.user.username,
+            title,
+            content
+        }]);
+
+        if (error) return alert('저장 중 오류가 발생했습니다.');
+        this.closePostModal();
+        await this.fetchData();
+        this.navigate('community');
+    },
+
+    async deletePost(id) {
+        if (!confirm('정말 삭제하시겠습니까?')) return;
+        const { error } = await _supabase.from('biku_posts').delete().eq('id', id);
+        if (error) return alert('삭제 중 오류가 발생했습니다.');
+        await this.fetchData();
+        this.navigate('community');
+    },
+
+    async submitComment() {
+        if (!this.user) return alert('로그인이 필요합니다.');
+        const content = document.getElementById('comment-input').value;
+        const postId = this.posts.find(p => document.getElementById('post-detail-container').innerHTML.includes(p.title)).id;
+
+        if (!content) return;
+
+        const { error } = await _supabase.from('biku_comments').insert([{
+            post_id: postId,
+            username: this.user.username,
+            content
+        }]);
+
+        if (error) return alert('저장 중 오류가 발생했습니다.');
+        document.getElementById('comment-input').value = '';
+        await this.renderPostDetail(postId);
+    },
+
+    async deleteComment(id, postId) {
+        if (!confirm('댓글을 삭제하시겠습니까?')) return;
+        const { error } = await _supabase.from('biku_comments').delete().eq('id', id);
+        if (error) return alert('삭제 중 오류가 발생했습니다.');
+        await this.renderPostDetail(postId);
     },
 
     async renderMyRecords() {

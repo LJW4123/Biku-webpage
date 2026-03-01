@@ -22,6 +22,8 @@
             <div class="logo" onclick="app.navigate('home')">BiKU</div>
             <ul class="nav-links" id="nav-links">
                 <li><a href="#" onclick="app.navigate('dashboard')">대시보드</a></li>
+                <li><a href="#" onclick="app.navigate('activity')">활동</a></li>
+                <li><a href="#" onclick="app.navigate('community')">커뮤니티</a></li>
                 <li><a href="#" onclick="app.navigate('my-records')">내 기록</a></li>
                 <li><a href="#" onclick="app.navigate('records')">기록인증</a></li>
                 <li><a href="#" onclick="app.navigate('rankings')">순위</a></li>
@@ -127,20 +129,82 @@
                     <p>이미지 분석 중...</p>
                 </div>
 
-                <div id="record-form" style="display: none;">
+                <div id="record-form" style="display: none; margin-top: 2rem;">
+                    <p
+                        style="color: var(--secondary); font-weight: 700; margin-bottom: 0.5rem; text-align: center; font-size: 0.9rem;">
+                        ⚠️ 기록이 정확하게 추출되었는지 꼭 확인해 주세요!</p>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem; text-align: center; font-size: 0.8rem;">
+                        (사진 데이터는 관리자 승인 후 최종 등록됩니다)</p>
+
                     <div class="form-group">
                         <label>라이딩 거리 (km)</label>
-                        <input type="number" id="ride-distance" placeholder="예: 25.5">
+                        <input type="number" id="ride-distance" placeholder="예: 25.5" step="0.01">
                     </div>
                     <div class="form-group">
                         <label>획득 고도 (m)</label>
-                        <input type="number" id="ride-elevation" placeholder="예: 300">
+                        <input type="number" id="ride-elevation" placeholder="예: 350">
                     </div>
-                    <button class="btn btn-primary" style="width: 100%;" onclick="app.submitRecord()">기록 확정 및
-                        저장</button>
-                    <button class="btn"
-                        style="width: 100%; margin-top: 1rem; background: rgba(255,0,0,0.1); color: #ff4444;"
-                        onclick="app.resetUpload()">다시 업로드</button>
+                    <div class="form-group">
+                        <label>주행 시간 (분)</label>
+                        <input type="number" id="ride-time" placeholder="예: 120">
+                    </div>
+                    <div class="form-group">
+                        <label>평균 속도 (km/h)</label>
+                        <input type="number" id="ride-avg-speed" placeholder="예: 22.5" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>최고 속도 (km/h)</label>
+                        <input type="number" id="ride-max-speed" placeholder="예: 45.0" step="0.1">
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button class="btn btn-primary" style="flex: 1;" onclick="app.submitRecord()">기록 확정 및
+                            저장</button>
+                        <button class="btn" style="flex: 1; background: rgba(255,0,0,0.1); color: #ff4444;"
+                            onclick="app.resetUpload()">다시 업로드</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </template>
+
+    <template id="view-activity">
+        <section class="fade-in" style="padding: 50px 0;">
+            <h1>최근 활동</h1>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">BiKU 멤버들의 멋진 라이딩 기록입니다.</p>
+            <div id="activity-feed-list" class="dashboard-grid">
+                <!-- Records from all users -->
+            </div>
+        </section>
+    </template>
+
+    <template id="view-community">
+        <section class="fade-in" style="padding: 50px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h1>커뮤니티</h1>
+                <button class="btn btn-primary" onclick="app.openPostModal()">글쓰기</button>
+            </div>
+            <div id="community-post-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Posts will be listed here -->
+            </div>
+        </section>
+    </template>
+
+    <template id="view-post-detail">
+        <section class="fade-in" style="padding: 50px 0;">
+            <button class="btn" style="margin-bottom: 2rem; background: rgba(255,255,255,0.05);"
+                onclick="app.navigate('community')">← 목록으로</button>
+            <div class="glass card" id="post-detail-container" style="padding: 2.5rem; margin-bottom: 2rem;">
+                <!-- Post content -->
+            </div>
+            <div class="glass card" style="padding: 2rem;">
+                <h3>댓글</h3>
+                <div id="comments-list" style="margin: 1.5rem 0; display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Comments -->
+                </div>
+                <div class="form-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                    <input type="text" id="comment-input" placeholder="댓글을 입력하세요..." style="flex: 1;">
+                    <button class="btn btn-primary" onclick="app.submitComment()">등록</button>
                 </div>
             </div>
         </section>
@@ -239,6 +303,27 @@
             </div>
         </section>
     </template>
+
+    <div id="post-modal" class="modal-overlay" style="display: none;">
+        <div class="glass modal-content" style="max-width: 600px;">
+            <h3>새 게시글 작성</h3>
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <label>제목</label>
+                <input type="text" id="post-title" placeholder="제목을 입력하세요">
+            </div>
+            <div class="form-group">
+                <label>내용</label>
+                <textarea id="post-content" rows="8"
+                    style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 10px; color: white; padding: 1rem; font-family: inherit; resize: none;"
+                    placeholder="내용을 입력하세요"></textarea>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="app.submitPost()">등록</button>
+                <button class="btn" style="flex: 1; background: rgba(255,255,255,0.1);"
+                    onclick="app.closePostModal()">취소</button>
+            </div>
+        </div>
+    </div>
 
     <div id="record-detail-modal" class="modal-overlay" style="display: none;">
         <div class="glass modal-content"
