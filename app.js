@@ -1,52 +1,24 @@
+const SUPABASE_URL = "https://olxqpibwexdpluthrqvb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9seHFwaWJ3ZXhkcGx1dGhycXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNzQ5MjYsImV4cCI6MjA4Nzk1MDkyNn0.okbZVJbiE7sg4B1Jd0BmJYeGfVOQ3EoO26QVOhsfAy4";
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const app = {
     user: null,
-    users: JSON.parse(localStorage.getItem('biku_users')) || [],
-    records: JSON.parse(localStorage.getItem('biku_records')) || [],
+    users: [],
+    records: [],
 
-    seedData() {
-        if (this.records.length === 0) {
-            const sampleUsers = [
-                { username: 'GreenRider', password: '123' },
-                { username: 'KonkukKing', password: '123' },
-                { username: 'BikuPro', password: '123' }
-            ];
-            const sampleRecords = [
-                { username: 'GreenRider', distance: 120.5, elevation: 1200, date: '2024-03-01T10:00:00Z' },
-                { username: 'KonkukKing', distance: 85.2, elevation: 600, date: '2024-03-01T11:00:00Z' },
-                { username: 'BikuPro', distance: 150.0, elevation: 1800, date: '2024-02-28T09:00:00Z' },
-                { username: 'GreenRider', distance: 45.0, elevation: 300, date: '2024-02-27T14:00:00Z' }
-            ];
-
-            if (this.users.length === 0) {
-                this.users = sampleUsers;
-                localStorage.setItem('biku_users', JSON.stringify(this.users));
-            }
-            this.records = sampleRecords;
-            localStorage.setItem('biku_records', JSON.stringify(this.records));
-        }
-    },
-
-    ensureAdmin() {
-        // Ensure admin account always exists and has the correct password
-        let adminAccount = this.users.find(u => u.username === 'admin');
-
-        if (!adminAccount) {
-            adminAccount = { username: 'admin', password: 'admin1234', isAdmin: true };
-            this.users.push(adminAccount);
-            localStorage.setItem('biku_users', JSON.stringify(this.users));
-        } else if (adminAccount.password !== 'admin1234') {
-            // Update password if it doesn't match the new standard
-            adminAccount.password = 'admin1234';
-            adminAccount.isAdmin = true; // Ensure flag is set
-            localStorage.setItem('biku_users', JSON.stringify(this.users));
-        }
-    },
-
-    init() {
-        this.seedData();
-        this.ensureAdmin();
+    async init() {
         this.checkAuth();
+        await this.fetchData();
         this.navigate('home');
+    },
+
+    async fetchData() {
+        const { data: users } = await _supabase.from('biku_users').select('*');
+        const { data: records } = await _supabase.from('biku_records').select('*').order('created_at', { ascending: false });
+
+        this.users = users || [];
+        this.records = records || [];
     },
 
     checkAuth() {
@@ -61,7 +33,6 @@ const app = {
         const authLink = document.getElementById('auth-link');
         const navLinks = document.getElementById('nav-links');
 
-        // Remove existing admin link if any
         const existingAdmin = document.getElementById('nav-admin');
         if (existingAdmin) existingAdmin.remove();
 
@@ -72,7 +43,7 @@ const app = {
                 this.logout();
             };
 
-            if (this.user.isAdmin) {
+            if (this.user.is_admin) {
                 const li = document.createElement('li');
                 li.id = 'nav-admin';
                 li.innerHTML = `<a href="#" onclick="app.navigate('admin')">관리자</a>`;
@@ -87,7 +58,7 @@ const app = {
         }
     },
 
-    navigate(view) {
+    async navigate(view) {
         const content = document.getElementById('app-content');
         const template = document.getElementById(`view-${view}`);
 
@@ -95,33 +66,44 @@ const app = {
             content.innerHTML = '';
             content.appendChild(template.content.cloneNode(true));
 
-            // Post-rendering logic
-            if (view === 'dashboard') this.renderDashboard();
-            if (view === 'rankings') this.renderRankings();
-            if (view === 'admin') this.renderAdmin();
+            if (view === 'dashboard') await this.renderDashboard();
+            if (view === 'rankings') await this.renderRankings();
+            if (view === 'admin') await this.renderAdmin();
         }
     },
 
-    signup() {
+    async signup() {
         const username = document.getElementById('signup-username').value;
         const password = document.getElementById('signup-password').value;
 
         if (!username || !password) return alert('모든 필드를 입력해주세요.');
-        if (this.users.find(u => u.username === username)) return alert('이미 존재하는 이름입니다.');
 
-        const newUser = { username, password };
-        this.users.push(newUser);
-        localStorage.setItem('biku_users', JSON.stringify(this.users));
+        const { data, error } = await _supabase
+            .from('biku_users')
+            .insert([{ username, password }])
+            .select();
+
+        if (error) {
+            if (error.code === '23505') return alert('이미 존재하는 이름입니다.');
+            return alert('회원가입 중 오류가 발생했습니다.');
+        }
 
         alert('회원가입 성공!');
+        await this.fetchData();
         this.navigate('login');
     },
 
-    login() {
+    async login() {
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
 
-        const user = this.users.find(u => u.username === username && u.password === password);
+        const { data: user, error } = await _supabase
+            .from('biku_users')
+            .select('*')
+            .eq('username', username)
+            .eq('password', password)
+            .single();
+
         if (user) {
             this.user = user;
             localStorage.setItem('biku_current_user', JSON.stringify(user));
@@ -150,7 +132,7 @@ const app = {
             preview.src = imageData;
             document.getElementById('preview-container').style.display = 'block';
             document.getElementById('upload-placeholder').style.display = 'none';
-            this.currentUploadImage = imageData; // Store image data temporarily
+            this.currentUploadImage = imageData;
             this.simulateExtraction();
         };
         reader.readAsDataURL(file);
@@ -161,11 +143,9 @@ const app = {
         document.getElementById('extraction-status').style.display = 'block';
         document.getElementById('record-form').style.display = 'none';
 
-        // More realistic "precision" simulation
         const delay = 1500 + Math.random() * 2000;
 
         setTimeout(() => {
-            // Simulated extraction logic that feels more "precise"
             const distBase = 20 + Math.random() * 40;
             const elevBase = 100 + Math.random() * 500;
 
@@ -182,7 +162,7 @@ const app = {
         this.navigate('records');
     },
 
-    submitRecord() {
+    async submitRecord() {
         if (!this.user) return alert('로그인이 필요합니다.');
 
         const distance = parseFloat(document.getElementById('ride-distance').value);
@@ -190,53 +170,56 @@ const app = {
 
         if (isNaN(distance) || isNaN(elevation)) return alert('올바른 값을 입력해주세요.');
 
-        const newRecord = {
-            username: this.user.username,
-            distance,
-            elevation,
-            image: this.currentUploadImage, // Add image data
-            date: new Date().toISOString()
-        };
+        const { error } = await _supabase
+            .from('biku_records')
+            .insert([{
+                username: this.user.username,
+                distance,
+                elevation,
+                image: this.currentUploadImage
+            }]);
 
-        this.records.push(newRecord);
-        localStorage.setItem('biku_records', JSON.stringify(this.records));
-        this.currentUploadImage = null; // Clear temporary storage
+        if (error) return alert('기록 저장 중 오류가 발생했습니다.');
 
-        alert('기록이 이미지와 함께 저장되었습니다!');
+        this.currentUploadImage = null;
+        alert('기록이 클라우드에 저장되었습니다!');
+        await this.fetchData();
         this.navigate('dashboard');
     },
 
-    renderDashboard() {
+    async renderDashboard() {
         if (!this.user) return;
 
+        await this.fetchData();
         const userRecords = this.records.filter(r => r.username === this.user.username);
         const totalDist = userRecords.reduce((sum, r) => sum + r.distance, 0);
-        const totalElev = userRecords.reduce((sum, r) => sum + r.elevation, 0);
+        const totalElev = userRecords.reduce((sum, r) => sum + Number(r.elevation), 0);
 
         document.getElementById('stats-total-dist').innerText = totalDist.toFixed(1);
         document.getElementById('stats-total-elev').innerText = totalElev.toLocaleString();
 
         const list = document.getElementById('recent-records-list');
-        list.innerHTML = userRecords.reverse().slice(0, 5).map(r => `
+        list.innerHTML = userRecords.slice(0, 5).map(r => `
             <div style="padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 1rem;">
                 ${r.image ? `<img src="${r.image}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border);">` : '<div style="width: 50px; height: 50px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">No Pic</div>'}
                 <div>
                     <span style="color: var(--secondary)">${r.distance}km</span> / 
                     <span>${r.elevation}m</span>
-                    <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(r.date).toLocaleDateString()}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(r.created_at).toLocaleDateString()}</div>
                 </div>
             </div>
         `).join('') || '<p style="color: var(--text-muted);">기록이 없습니다.</p>';
     },
 
-    renderRankings() {
+    async renderRankings() {
+        await this.fetchData();
         const userStats = {};
         this.records.forEach(r => {
             if (!userStats[r.username]) {
                 userStats[r.username] = { distance: 0, elevation: 0, count: 0 };
             }
             userStats[r.username].distance += r.distance;
-            userStats[r.username].elevation += r.elevation;
+            userStats[r.username].elevation += Number(r.elevation);
             userStats[r.username].count += 1;
         });
 
@@ -264,13 +247,13 @@ const app = {
         }).join('');
     },
 
-    renderAdmin() {
-        if (!this.user || !this.user.isAdmin) return this.navigate('home');
+    async renderAdmin() {
+        if (!this.user || !this.user.is_admin) return this.navigate('home');
 
-        // User Management Table
+        await this.fetchData();
         const userTbody = document.getElementById('admin-user-table-body');
         if (userTbody) {
-            userTbody.innerHTML = this.users.filter(u => !u.isAdmin).map(u => `
+            userTbody.innerHTML = this.users.filter(u => !u.is_admin).map(u => `
                 <tr>
                     <td>${u.username}</td>
                     <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteUser('${u.username}')">삭제</button></td>
@@ -278,17 +261,16 @@ const app = {
             `).join('') || '<tr><td colspan="2">유저가 없습니다.</td></tr>';
         }
 
-        // Record Management Table
         const recordTbody = document.getElementById('admin-record-table-body');
         if (recordTbody) {
             recordTbody.innerHTML = this.records.map((r, i) => `
                 <tr>
                     <td>${r.username}</td>
                     <td>${r.distance}km / ${r.elevation}m</td>
-                    <td>${new Date(r.date).toLocaleDateString()}</td>
+                    <td>${new Date(r.created_at).toLocaleDateString()}</td>
                     <td>
                         <button class="btn" style="background: rgba(0,255,136,0.1); color: var(--secondary); padding: 0.5rem 1rem;" onclick="app.viewFullImage(${i})">사진</button>
-                        <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteRecord(${i})">삭제</button>
+                        <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteRecord('${r.id}')">삭제</button>
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="4">기록이 없습니다.</td></tr>';
@@ -298,27 +280,22 @@ const app = {
     viewFullImage(index) {
         const record = this.records[index];
         if (!record || !record.image) return alert('이미지가 없는 기록입니다.');
-
         const win = window.open("");
         win.document.write(`<img src="${record.image}" style="max-width:100%; height:auto; display: block; margin: 0 auto; background: #0a0a0a;">`);
-        win.document.title = `${record.username}의 라이딩 인증 사진`;
         win.document.body.style.background = "#0a0a0a";
     },
 
-    deleteUser(username) {
+    async deleteUser(username) {
         if (!confirm(`${username} 회원을 삭제하시겠습니까?`)) return;
-        this.users = this.users.filter(u => u.username !== username);
-        this.records = this.records.filter(r => r.username !== username);
-        localStorage.setItem('biku_users', JSON.stringify(this.users));
-        localStorage.setItem('biku_records', JSON.stringify(this.records));
-        this.renderAdmin();
+        await _supabase.from('biku_records').delete().eq('username', username);
+        await _supabase.from('biku_users').delete().eq('username', username);
+        await this.renderAdmin();
     },
 
-    deleteRecord(index) {
+    async deleteRecord(id) {
         if (!confirm('기록을 삭제하시겠습니까?')) return;
-        this.records.splice(index, 1);
-        localStorage.setItem('biku_records', JSON.stringify(this.records));
-        this.renderAdmin();
+        await _supabase.from('biku_records').delete().eq('id', id);
+        await this.renderAdmin();
     }
 };
 
