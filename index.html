@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiKU - Konkuk Bicycle Club</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <nav>
+            <div class="logo" onclick="app.navigate('home')">BiKU</div>
+            <ul class="nav-links" id="nav-links">
+                <li><a href="#" onclick="app.navigate('dashboard')">대시보드</a></li>
+                <li><a href="#" onclick="app.navigate('records')">기록인증</a></li>
+                <li><a href="#" onclick="app.navigate('rankings')">순위</a></li>
+                <li><a href="#" id="auth-link" onclick="app.navigate('login')">로그인</a></li>
+            </ul>
+        </nav>
+
+        <main id="app-content">
+            <!-- Dynamic Content -->
+        </main>
+    </div>
+
+    <!-- Views Templates -->
+    <template id="view-home">
+        <section class="hero fade-in" style="padding: 100px 0; text-align: center;">
+            <h1 style="font-size: 4rem; font-weight: 800; margin-bottom: 1rem;">Keep Riding, <br><span
+                    style="color: var(--secondary)">Dream BiKU</span></h1>
+            <p style="color: var(--text-muted); font-size: 1.2rem; margin-bottom: 2rem;">건국대학교 중앙 자전거 동아리 BiKU에 오신 것을
+                환영합니다.</p>
+            <button class="btn btn-primary" onclick="app.navigate('signup')">지금 시작하기</button>
+        </section>
+    </template>
+
+    <template id="view-login">
+        <section id="auth-view" class="glass fade-in">
+            <div class="auth-form">
+                <h2>환영합니다!</h2>
+                <div class="form-group">
+                    <input type="text" id="login-username" placeholder="사용자 이름">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="login-password" placeholder="비밀번호">
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="app.login()">로그인</button>
+                <p style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted);">
+                    계정이 없으신가요? <a href="#" onclick="app.navigate('signup')"
+                        style="color: var(--secondary); text-decoration: none;">회원가입</a>
+                </p>
+            </div>
+        </section>
+    </template>
+
+    <template id="view-signup">
+        <section id="auth-view" class="glass fade-in">
+            <div class="auth-form">
+                <h2>회원가입</h2>
+                <div class="form-group">
+                    <input type="text" id="signup-username" placeholder="사용자 이름">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="signup-password" placeholder="비밀번호">
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="app.signup()">가입하기</button>
+                <p style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted);">
+                    이미 계정이 있나요? <a href="#" onclick="app.navigate('login')"
+                        style="color: var(--secondary); text-decoration: none;">로그인</a>
+                </p>
+            </div>
+        </section>
+    </template>
+
+    <template id="view-records">
+        <section class="fade-in" style="padding: 50px 0;">
+            <div class="glass card" style="max-width: 600px; margin: 0 auto; position: relative; overflow: hidden;">
+                <h2>라이딩 기록 인증</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">스트라바 등 라이딩 앱의 결과 화면을 업로드하세요.</p>
+
+                <div id="upload-area"
+                    style="border: 2px dashed var(--glass-border); padding: 2rem; text-align: center; border-radius: 15px; margin-bottom: 2rem; cursor: pointer;"
+                    onclick="document.getElementById('ride-image').click()">
+                    <div id="preview-container" style="display: none; margin-bottom: 1rem;">
+                        <img id="image-preview"
+                            style="max-width: 100%; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                    </div>
+                    <div id="upload-placeholder">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📸</div>
+                        <p>이미지를 클릭하여 업로드</p>
+                    </div>
+                    <input type="file" id="ride-image" accept="image/*" style="display: none;"
+                        onchange="app.handleImageUpload(event)">
+                </div>
+
+                <div id="extraction-status" style="display: none; text-align: center; margin-bottom: 2rem;">
+                    <div class="loader" style="margin: 0 auto 1rem;"></div>
+                    <p>이미지 분석 중...</p>
+                </div>
+
+                <div id="record-form" style="display: none;">
+                    <div class="form-group">
+                        <label>라이딩 거리 (km)</label>
+                        <input type="number" id="ride-distance" placeholder="예: 25.5">
+                    </div>
+                    <div class="form-group">
+                        <label>획득 고도 (m)</label>
+                        <input type="number" id="ride-elevation" placeholder="예: 300">
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="app.submitRecord()">기록 확정 및
+                        저장</button>
+                    <button class="btn"
+                        style="width: 100%; margin-top: 1rem; background: rgba(255,0,0,0.1); color: #ff4444;"
+                        onclick="app.resetUpload()">다시 업로드</button>
+                </div>
+            </div>
+        </section>
+    </template>
+
+    <template id="view-dashboard">
+        <section class="fade-in" style="padding: 50px 0;">
+            <h1>내 대시보드</h1>
+            <div class="dashboard-grid">
+                <div class="glass card">
+                    <h3>총 활동 요약</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="stats-total-dist">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">총 거리 (km)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stats-total-elev">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">총 고도 (m)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass card">
+                    <h3>최근 기록</h3>
+                    <div id="recent-records-list" style="margin-top: 1rem;">
+                        <p style="color: var(--text-muted);">기록이 없습니다.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </template>
+
+    <template id="view-rankings">
+        <section class="fade-in" style="padding: 50px 0;">
+            <div class="glass card">
+                <h2 style="margin-bottom: 2rem;">🏆 BiKU 시즌 랭킹</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>순위</th>
+                            <th>라이더</th>
+                            <th>총 거리 (km)</th>
+                            <th>평균 고도 (m)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-table-body">
+                        <!-- Rankings will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </template>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
