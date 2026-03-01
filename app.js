@@ -104,7 +104,7 @@ const app = {
             if (view === 'dashboard') await this.renderDashboard();
             if (view === 'activity') await this.renderActivity();
             if (view === 'community') await this.renderCommunity();
-            if (view.startsWith('post-')) await this.renderPostDetail(view.split('-')[1]);
+            if (view.startsWith('post-')) await this.renderPostDetail(view.slice(5));
             if (view === 'my-records') await this.renderMyRecords();
             if (view === 'rankings') await this.renderRankings();
             if (view === 'admin') await this.renderAdmin();
