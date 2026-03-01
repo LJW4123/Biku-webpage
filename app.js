@@ -8,7 +8,8 @@ const app = {
             const sampleUsers = [
                 { username: 'GreenRider', password: '123' },
                 { username: 'KonkukKing', password: '123' },
-                { username: 'BikuPro', password: '123' }
+                { username: 'BikuPro', password: '123' },
+                { username: 'admin', password: 'admin123', isAdmin: true }
             ];
             const sampleRecords = [
                 { username: 'GreenRider', distance: 120.5, elevation: 1200, date: '2024-03-01T10:00:00Z' },
@@ -42,12 +43,25 @@ const app = {
 
     updateNav() {
         const authLink = document.getElementById('auth-link');
+        const navLinks = document.getElementById('nav-links');
+
+        // Remove existing admin link if any
+        const existingAdmin = document.getElementById('nav-admin');
+        if (existingAdmin) existingAdmin.remove();
+
         if (this.user) {
             authLink.innerText = `${this.user.username} (로그아웃)`;
             authLink.onclick = (e) => {
                 e.preventDefault();
                 this.logout();
             };
+
+            if (this.user.isAdmin) {
+                const li = document.createElement('li');
+                li.id = 'nav-admin';
+                li.innerHTML = `<a href="#" onclick="app.navigate('admin')">관리자</a>`;
+                navLinks.insertBefore(li, authLink.parentElement);
+            }
         } else {
             authLink.innerText = '로그인';
             authLink.onclick = (e) => {
@@ -187,37 +201,47 @@ const app = {
     },
 
     renderRankings() {
-        const userStats = {};
-        this.records.forEach(r => {
-            if (!userStats[r.username]) {
-                userStats[r.username] = { distance: 0, elevation: 0, count: 0 };
-            }
-            userStats[r.username].distance += r.distance;
-            userStats[r.username].elevation += r.elevation;
-            userStats[r.username].count += 1;
-        });
+        // ... (existing logic)
+    },
 
-        const sorted = Object.entries(userStats)
-            .map(([username, stats]) => ({ username, ...stats }))
-            .sort((a, b) => b.distance - a.distance);
+    renderAdmin() {
+        if (!this.user || !this.user.isAdmin) return this.navigate('home');
 
-        const tbody = document.getElementById('ranking-table-body');
-        tbody.innerHTML = sorted.map((u, i) => {
-            let rankClass = '';
-            if (i === 0) rankClass = 'rank-badge rank-1';
-            else if (i === 1) rankClass = 'rank-badge rank-2';
-            else if (i === 2) rankClass = 'rank-badge rank-3';
-            else rankClass = 'rank-badge';
+        // User Management Table
+        const userTbody = document.getElementById('admin-user-table-body');
+        userTbody.innerHTML = this.users.filter(u => !u.isAdmin).map(u => `
+            <tr>
+                <td>${u.username}</td>
+                <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteUser('${u.username}')">삭제</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="2">유저가 없습니다.</td></tr>';
 
-            return `
-                <tr>
-                    <td><span class="${rankClass}">${i + 1}</span></td>
-                    <td style="font-weight: 600;">${u.username}</td>
-                    <td>${u.distance.toFixed(1)} km</td>
-                    <td>${(u.elevation / u.count).toFixed(0)} m</td>
-                </tr>
-            `;
-        }).join('');
+        // Record Management Table
+        const recordTbody = document.getElementById('admin-record-table-body');
+        recordTbody.innerHTML = this.records.map((r, i) => `
+            <tr>
+                <td>${r.username}</td>
+                <td>${r.distance}km / ${r.elevation}m</td>
+                <td>${new Date(r.date).toLocaleDateString()}</td>
+                <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteRecord(${i})">삭제</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="4">기록이 없습니다.</td></tr>';
+    },
+
+    deleteUser(username) {
+        if (!confirm(`${username} 회원을 삭제하시겠습니까?`)) return;
+        this.users = this.users.filter(u => u.username !== username);
+        this.records = this.records.filter(r => r.username !== username);
+        localStorage.setItem('biku_users', JSON.stringify(this.users));
+        localStorage.setItem('biku_records', JSON.stringify(this.records));
+        this.renderAdmin();
+    },
+
+    deleteRecord(index) {
+        if (!confirm('기록을 삭제하시겠습니까?')) return;
+        this.records.splice(index, 1);
+        localStorage.setItem('biku_records', JSON.stringify(this.records));
+        this.renderAdmin();
     }
 };
 

@@ -172,6 +172,40 @@
         </section>
     </template>
 
+    <template id="view-admin">
+        <section class="fade-in" style="padding: 50px 0;">
+            <h1>관리자 대시보드</h1>
+            <div class="dashboard-grid">
+                <div class="glass card">
+                    <h3>회원 관리</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>아이디</th>
+                                <th>명령</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-user-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="glass card">
+                    <h3>전체 기록 관리</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>회원</th>
+                                <th>기록</th>
+                                <th>날짜</th>
+                                <th>명령</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-record-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </template>
+
     <script src="app.js"></script>
 </body>
 
