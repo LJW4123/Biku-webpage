@@ -8,8 +8,7 @@ const app = {
             const sampleUsers = [
                 { username: 'GreenRider', password: '123' },
                 { username: 'KonkukKing', password: '123' },
-                { username: 'BikuPro', password: '123' },
-                { username: 'admin', password: 'admin123', isAdmin: true }
+                { username: 'BikuPro', password: '123' }
             ];
             const sampleRecords = [
                 { username: 'GreenRider', distance: 120.5, elevation: 1200, date: '2024-03-01T10:00:00Z' },
@@ -27,8 +26,18 @@ const app = {
         }
     },
 
+    ensureAdmin() {
+        // Ensure admin account always exists in the users list
+        const adminExists = this.users.find(u => u.username === 'admin');
+        if (!adminExists) {
+            this.users.push({ username: 'admin', password: 'admin1234', isAdmin: true });
+            localStorage.setItem('biku_users', JSON.stringify(this.users));
+        }
+    },
+
     init() {
         this.seedData();
+        this.ensureAdmin();
         this.checkAuth();
         this.navigate('home');
     },
@@ -82,6 +91,7 @@ const app = {
             // Post-rendering logic
             if (view === 'dashboard') this.renderDashboard();
             if (view === 'rankings') this.renderRankings();
+            if (view === 'admin') this.renderAdmin();
         }
     },
 
@@ -201,7 +211,38 @@ const app = {
     },
 
     renderRankings() {
-        // ... (existing logic)
+        const userStats = {};
+        this.records.forEach(r => {
+            if (!userStats[r.username]) {
+                userStats[r.username] = { distance: 0, elevation: 0, count: 0 };
+            }
+            userStats[r.username].distance += r.distance;
+            userStats[r.username].elevation += r.elevation;
+            userStats[r.username].count += 1;
+        });
+
+        const sorted = Object.entries(userStats)
+            .map(([username, stats]) => ({ username, ...stats }))
+            .sort((a, b) => b.distance - a.distance);
+
+        const tbody = document.getElementById('ranking-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = sorted.map((u, i) => {
+            let rankClass = '';
+            if (i === 0) rankClass = 'rank-badge rank-1';
+            else if (i === 1) rankClass = 'rank-badge rank-2';
+            else if (i === 2) rankClass = 'rank-badge rank-3';
+            else rankClass = 'rank-badge';
+
+            return `
+                <tr>
+                    <td><span class="${rankClass}">${i + 1}</span></td>
+                    <td style="font-weight: 600;">${u.username}</td>
+                    <td>${u.distance.toFixed(1)} km</td>
+                    <td>${(u.elevation / u.count).toFixed(0)} m</td>
+                </tr>
+            `;
+        }).join('');
     },
 
     renderAdmin() {
@@ -209,23 +250,27 @@ const app = {
 
         // User Management Table
         const userTbody = document.getElementById('admin-user-table-body');
-        userTbody.innerHTML = this.users.filter(u => !u.isAdmin).map(u => `
-            <tr>
-                <td>${u.username}</td>
-                <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteUser('${u.username}')">삭제</button></td>
-            </tr>
-        `).join('') || '<tr><td colspan="2">유저가 없습니다.</td></tr>';
+        if (userTbody) {
+            userTbody.innerHTML = this.users.filter(u => !u.isAdmin).map(u => `
+                <tr>
+                    <td>${u.username}</td>
+                    <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteUser('${u.username}')">삭제</button></td>
+                </tr>
+            `).join('') || '<tr><td colspan="2">유저가 없습니다.</td></tr>';
+        }
 
         // Record Management Table
         const recordTbody = document.getElementById('admin-record-table-body');
-        recordTbody.innerHTML = this.records.map((r, i) => `
-            <tr>
-                <td>${r.username}</td>
-                <td>${r.distance}km / ${r.elevation}m</td>
-                <td>${new Date(r.date).toLocaleDateString()}</td>
-                <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteRecord(${i})">삭제</button></td>
-            </tr>
-        `).join('') || '<tr><td colspan="4">기록이 없습니다.</td></tr>';
+        if (recordTbody) {
+            recordTbody.innerHTML = this.records.map((r, i) => `
+                <tr>
+                    <td>${r.username}</td>
+                    <td>${r.distance}km / ${r.elevation}m</td>
+                    <td>${new Date(r.date).toLocaleDateString()}</td>
+                    <td><button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem 1rem;" onclick="app.deleteRecord(${i})">삭제</button></td>
+                </tr>
+            `).join('') || '<tr><td colspan="4">기록이 없습니다.</td></tr>';
+        }
     },
 
     deleteUser(username) {
