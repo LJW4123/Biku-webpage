@@ -229,14 +229,33 @@ const app = {
             });
             const activity = await response.json();
 
-            document.getElementById('ride-distance').value = (activity.distance / 1000).toFixed(2);
-            document.getElementById('ride-elevation').value = Math.round(activity.total_elevation_gain);
+            const dist = (activity.distance / 1000).toFixed(2);
+            const elev = Math.round(activity.total_elevation_gain);
+            const timeMins = Math.round(activity.moving_time / 60);
+            const avgSpeed = (activity.average_speed * 3.6).toFixed(1);
+            const maxSpeed = (activity.max_speed * 3.6).toFixed(1);
 
-            // Store expanded data
+            // Populate and make read-only
+            const fields = [
+                { id: 'ride-distance', val: dist },
+                { id: 'ride-elevation', val: elev },
+                { id: 'ride-time', val: timeMins },
+                { id: 'ride-avg-speed', val: avgSpeed },
+                { id: 'ride-max-speed', val: maxSpeed }
+            ];
+
+            fields.forEach(f => {
+                const el = document.getElementById(f.id);
+                el.value = f.val;
+                el.readOnly = true;
+                el.style.opacity = '0.7';
+                el.style.cursor = 'not-allowed';
+            });
+
             this.currentStravaData = {
                 moving_time: activity.moving_time,
-                average_speed: (activity.average_speed * 3.6).toFixed(1),
-                max_speed: (activity.max_speed * 3.6).toFixed(1)
+                average_speed: avgSpeed,
+                max_speed: maxSpeed
             };
 
             document.getElementById('record-form').style.display = 'block';
@@ -322,6 +341,30 @@ const app = {
     },
 
     resetUpload() {
+        this.currentUploadImage = null;
+        this.currentMapPolyline = null;
+        this.currentStravaData = null;
+
+        // Reset read-only status and values
+        const ids = ['ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = '';
+                el.readOnly = false;
+                el.style.opacity = '1';
+                el.style.cursor = 'text';
+            }
+        });
+
+        const preview = document.getElementById('image-preview');
+        if (preview) preview.src = '';
+        const previewCont = document.getElementById('preview-container');
+        if (previewCont) previewCont.style.display = 'none';
+
+        const mapCont = document.getElementById('map-preview');
+        if (mapCont) mapCont.style.display = 'none';
+
         this.navigate('records');
     },
 
@@ -347,13 +390,24 @@ const app = {
                 elevation: Math.round(elevation),
                 image: this.currentUploadImage,
                 map_polyline: this.currentMapPolyline,
-                moving_time: this.currentStravaData ? this.currentStravaData.moving_time : (movingTimeMins * 60),
-                average_speed: Number(this.currentStravaData ? this.currentStravaData.average_speed : avgSpeed),
-                max_speed: Number(this.currentStravaData ? this.currentStravaData.max_speed : maxSpeed),
+                moving_time: movingTimeMins * 60,
+                average_speed: Number(avgSpeed),
+                max_speed: Number(maxSpeed),
                 status
             }]);
 
         if (error) return alert('기록 저장 중 오류가 발생했습니다.');
+
+        // Success cleanup
+        const ids = ['ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.readOnly = false;
+                el.style.opacity = '1';
+                el.style.cursor = 'text';
+            }
+        });
 
         this.currentUploadImage = null;
         this.currentMapPolyline = null;
