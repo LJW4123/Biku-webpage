@@ -4,7 +4,7 @@ const _supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, S
 
 const STRAVA_CLIENT_ID = "207086";
 const STRAVA_CLIENT_SECRET = "759c953db887babbfc676ae8acab74238ae40ce5";
-const STRAVA_REDIRECT_URI = "https://ljw4123.github.io/BiKU-webpage/";
+const STRAVA_REDIRECT_URI = "https://ljw4123.github.io/Biku-webpage/";
 
 const app = {
     user: null,
