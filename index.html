@@ -252,21 +252,25 @@
 
     <template id="view-rankings">
         <section class="fade-in" style="padding: 50px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h1>시즌 순위</h1>
+                <div style="font-size: 0.9rem; color: var(--text-muted);">실시간 승인된 기록 기준</div>
+            </div>
             <div class="glass card">
-                <h2 style="margin-bottom: 2rem;">🏆 BiKU 시즌 랭킹</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>순위</th>
-                            <th>라이더</th>
-                            <th>총 거리 (km)</th>
-                            <th>평균 고도 (m)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ranking-table-body">
-                        <!-- Rankings will be injected here -->
-                    </tbody>
-                </table>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>순위</th>
+                                <th>이름</th>
+                                <th>거리 (km)</th>
+                                <th>획득고도 (m)</th>
+                                <th>활동수</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-tbody"></tbody>
+                    </table>
+                </div>
             </div>
         </section>
     </template>

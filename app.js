@@ -94,7 +94,8 @@ const app = {
 
     async navigate(view) {
         const content = document.getElementById('app-content');
-        const template = document.getElementById(`view-${view}`);
+        const templateId = view.startsWith('post-') ? 'view-post-detail' : `view-${view}`;
+        const template = document.getElementById(templateId);
 
         if (template) {
             content.innerHTML = '';
