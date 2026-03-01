@@ -256,3 +256,27 @@ label {
 html {
     scroll-behavior: smooth;
 }
+
+/* Modal Styling */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 400px;
+}
+
+.activity-item:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+}
