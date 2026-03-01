@@ -160,7 +160,8 @@
                     <div style="display: flex; gap: 1rem; margin-top: 1rem;">
                         <button class="btn btn-primary" style="flex: 1;" onclick="app.submitRecord()">기록 확정 및
                             저장</button>
-                        <button class="btn" style="flex: 1; background: rgba(255,0,0,0.1); color: #ff4444;"
+                        <button class="btn btn-secondary"
+                            style="flex: 1; border-color: rgba(255,0,0,0.3); color: #ff4444;"
                             onclick="app.resetUpload()">다시 업로드</button>
                     </div>
                 </div>
@@ -192,8 +193,8 @@
 
     <template id="view-post-detail">
         <section class="fade-in" style="padding: 50px 0;">
-            <button class="btn" style="margin-bottom: 2rem; background: rgba(255,255,255,0.05);"
-                onclick="app.navigate('community')">← 목록으로</button>
+            <button class="btn btn-secondary" style="margin-bottom: 2rem;" onclick="app.navigate('community')">←
+                목록으로</button>
             <div class="glass card" id="post-detail-container" style="padding: 2.5rem; margin-bottom: 2rem;">
                 <!-- Post content -->
             </div>
@@ -324,8 +325,7 @@
             </div>
             <div style="display: flex; gap: 1rem; margin-top: 1rem;">
                 <button class="btn btn-primary" style="flex: 1;" onclick="app.submitPost()">등록</button>
-                <button class="btn" style="flex: 1; background: rgba(255,255,255,0.1);"
-                    onclick="app.closePostModal()">취소</button>
+                <button class="btn btn-secondary" style="flex: 1;" onclick="app.closePostModal()">취소</button>
             </div>
         </div>
     </div>
@@ -364,8 +364,7 @@
                     </div>
                 </div>
                 <div style="margin-top: 1.5rem; text-align: right;">
-                    <button class="btn" style="background: rgba(255,255,255,0.1);"
-                        onclick="app.closeDetailModal()">닫기</button>
+                    <button class="btn btn-secondary" onclick="app.closeDetailModal()">닫기</button>
                 </div>
             </div>
         </div>
@@ -385,8 +384,7 @@
             </div>
             <div style="display: flex; gap: 1rem; margin-top: 1rem;">
                 <button class="btn btn-primary" style="flex: 1;" onclick="app.saveEdit()">저장</button>
-                <button class="btn" style="flex: 1; background: rgba(255,255,255,0.1);"
-                    onclick="app.closeEditModal()">취소</button>
+                <button class="btn btn-secondary" style="flex: 1;" onclick="app.closeEditModal()">취소</button>
             </div>
         </div>
     </div>

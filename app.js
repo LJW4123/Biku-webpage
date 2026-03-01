@@ -344,12 +344,12 @@ const app = {
             .insert([{
                 username: this.user.username,
                 distance,
-                elevation,
+                elevation: Math.round(elevation),
                 image: this.currentUploadImage,
                 map_polyline: this.currentMapPolyline,
                 moving_time: this.currentStravaData ? this.currentStravaData.moving_time : (movingTimeMins * 60),
-                average_speed: this.currentStravaData ? this.currentStravaData.average_speed : avgSpeed,
-                max_speed: this.currentStravaData ? this.currentStravaData.max_speed : maxSpeed,
+                average_speed: Number(this.currentStravaData ? this.currentStravaData.average_speed : avgSpeed),
+                max_speed: Number(this.currentStravaData ? this.currentStravaData.max_speed : maxSpeed),
                 status
             }]);
 
@@ -374,14 +374,16 @@ const app = {
 
         await this.fetchData();
         const userRecords = this.records.filter(r => r.username === this.user.username);
-        const totalDist = userRecords.reduce((sum, r) => sum + r.distance, 0);
-        const totalElev = userRecords.reduce((sum, r) => sum + Number(r.elevation), 0);
+        const top5 = userRecords.slice(0, 5);
+
+        const totalDist = userRecords.reduce((sum, r) => sum + (r.distance || 0), 0);
+        const totalElev = userRecords.reduce((sum, r) => sum + Math.round(r.elevation || 0), 0);
 
         document.getElementById('stats-total-dist').innerText = totalDist.toFixed(1);
         document.getElementById('stats-total-elev').innerText = totalElev.toLocaleString();
 
         const list = document.getElementById('recent-records-list');
-        list.innerHTML = userRecords.slice(0, 5).map(r => {
+        list.innerHTML = top5.map(r => {
             let statusBadge = '';
             if (r.status === 'pending') statusBadge = '<span style="font-size: 0.7rem; background: rgba(255,200,0,0.2); color: #ffcc00; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">대기 중</span>';
             else if (r.status === 'rejected') statusBadge = '<span style="font-size: 0.7rem; background: rgba(255,0,0,0.2); color: #ff4444; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">반려됨</span>';
@@ -394,7 +396,7 @@ const app = {
                         '<div style="width: 50px; height: 50px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">No Pic</div>')}
                     <div style="flex: 1;">
                         <span style="color: var(--secondary)">${r.distance}km</span> / 
-                        <span>${r.elevation}m</span>
+                        <span>${Math.round(r.elevation)}m</span>
                         ${statusBadge}
                         <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(r.created_at).toLocaleDateString()}</div>
                     </div>
@@ -402,8 +404,7 @@ const app = {
             `;
         }).join('') || '<p style="color: var(--text-muted);">기록이 없습니다.</p>';
 
-        // Post-render map thumbnails if any
-        userRecords.slice(0, 5).forEach(r => {
+        top5.forEach(r => {
             if (r.map_polyline && !r.image) {
                 setTimeout(() => {
                     const thumb = L.map(`map-thumb-${r.id}`, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false }).setView([0, 0], 10);
@@ -467,7 +468,7 @@ const app = {
                     </div>
                 </div>
                 ${this.user && (this.user.is_admin || this.user.username === p.username) ? `
-                    <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.5rem;" onclick="event.stopPropagation(); app.deletePost('${p.id}')">삭제</button>
+                    <button class="btn btn-secondary" style="border-color: rgba(255,0,0,0.2); color: #ff4444; padding: 0.5rem;" onclick="event.stopPropagation(); app.deletePost('${p.id}')">삭제</button>
                 ` : ''}
             </div>
         `).join('') || '<p style="text-align: center; color: var(--text-muted); padding: 3rem;">게시글이 없습니다.</p>';
@@ -476,8 +477,11 @@ const app = {
     async renderPostDetail(postId) {
         this.currentPostId = postId;
         await this.fetchData();
-        const post = this.posts.find(p => p.id === postId);
-        if (!post) return this.navigate('community');
+        const post = this.posts.find(p => String(p.id) === String(postId));
+        if (!post) {
+            console.error("Post not found:", postId);
+            return this.navigate('community');
+        }
 
         const container = document.getElementById('post-detail-container');
         container.innerHTML = `
@@ -487,7 +491,7 @@ const app = {
                     <div style="color: var(--text-muted); font-size: 0.9rem;">작성자: ${post.username} | ${new Date(post.created_at).toLocaleString()}</div>
                 </div>
                 ${this.user && (this.user.is_admin || this.user.username === post.username) ? `
-                    <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444;" onclick="app.deletePost('${post.id}')">삭제</button>
+                    <button class="btn btn-secondary" style="border-color: rgba(255,0,0,0.2); color: #ff4444;" onclick="app.deletePost('${post.id}')">삭제</button>
                 ` : ''}
             </div>
             <div style="line-height: 1.8; white-space: pre-wrap; font-size: 1.1rem;">${post.content}</div>
@@ -503,7 +507,7 @@ const app = {
                     <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">${new Date(c.created_at).toLocaleString()}</div>
                 </div>
                 ${this.user && (this.user.is_admin || this.user.username === c.username) ? `
-                    <button class="btn" style="background: rgba(255,0,0,0.05); color: #ff4444; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="app.deleteComment('${c.id}', '${postId}')">삭제</button>
+                    <button class="btn btn-secondary" style="border-color: rgba(255,0,0,0.1); color: #ff4444; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="app.deleteComment('${c.id}', '${postId}')">삭제</button>
                 ` : ''}
             </div>
         `).join('') || '<p style="color: var(--text-muted); padding: 1rem;">첫 댓글을 남겨보세요!</p>';
@@ -667,8 +671,8 @@ const app = {
             if (!userStats[r.username]) {
                 userStats[r.username] = { distance: 0, elevation: 0, count: 0 };
             }
-            userStats[r.username].distance += r.distance;
-            userStats[r.username].elevation += Number(r.elevation);
+            userStats[r.username].distance += (r.distance || 0);
+            userStats[r.username].elevation += Number(r.elevation || 0);
             userStats[r.username].count += 1;
         });
 
@@ -676,7 +680,7 @@ const app = {
             .map(([username, stats]) => ({ username, ...stats }))
             .sort((a, b) => b.distance - a.distance);
 
-        const tbody = document.getElementById('ranking-table-body');
+        const tbody = document.getElementById('ranking-tbody');
         if (!tbody) return;
         tbody.innerHTML = sorted.map((u, i) => {
             let rankClass = '';
@@ -690,7 +694,8 @@ const app = {
                     <td><span class="${rankClass}">${i + 1}</span></td>
                     <td style="font-weight: 600;">${u.username}</td>
                     <td>${u.distance.toFixed(1)} km</td>
-                    <td>${(u.elevation / u.count).toFixed(0)} m</td>
+                    <td>${u.elevation.toLocaleString()} m</td>
+                    <td>${u.count}회</td>
                 </tr>
             `;
         }).join('');
@@ -729,17 +734,17 @@ const app = {
                         <td>${new Date(r.created_at).toLocaleDateString()}</td>
                         <td>
                             <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                                <button class="btn" style="background: rgba(0,255,136,0.1); color: var(--secondary); padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.viewFullImage(${i})">사진/지도</button>
+                                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.viewFullImage('${r.id}')">사진/지도</button>
                                 ${r.status === 'pending' ? `
-                                    <button class="btn" style="background: rgba(0,255,136,0.2); color: var(--secondary); padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.approveRecord('${r.id}')">승인</button>
-                                    <button class="btn" style="background: rgba(255,0,0,0.2); color: #ff4444; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.rejectRecord('${r.id}')">반려</button>
+                                    <button class="btn btn-secondary" style="border-color: rgba(0,255,136,0.3); color: var(--secondary); padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.approveRecord('${r.id}')">승인</button>
+                                    <button class="btn btn-secondary" style="border-color: rgba(255,0,0,0.3); color: #ff4444; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.rejectRecord('${r.id}')">반려</button>
                                 ` : ''}
-                                <button class="btn" style="background: rgba(255,153,0,0.1); color: #ff9900; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.openEditModal('${r.id}')">수정</button>
-                                <button class="btn" style="background: rgba(255,0,0,0.1); color: #ff4444; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.deleteRecord('${r.id}')">삭제</button>
+                                <button class="btn btn-secondary" style="border-color: rgba(255,153,0,0.3); color: #ff9900; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.openEditModal('${r.id}')">수정</button>
+                                <button class="btn btn-secondary" style="border-color: rgba(255,0,0,0.3); color: #ff4444; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.deleteRecord('${r.id}')">삭제</button>
                             </div>
                         </td>
                     </tr>
-                `;
+    `;
             }).join('') || '<tr><td colspan="4">기록이 없습니다.</td></tr>';
         }
     },
@@ -769,17 +774,17 @@ const app = {
         await this.renderAdmin();
     },
 
-    viewFullImage(index) {
-        const record = this.records[index];
+    viewFullImage(id) {
+        const record = this.records.find(r => r.id === id);
         if (!record) return;
 
         const win = window.open("");
         let content = '';
         if (record.image) {
-            content = `<img src="${record.image}" style="max-width:100%; height:auto; display: block; margin: 0 auto;">`;
+            content = `< img src = "${record.image}" style = "max-width:100%; height:auto; display: block; margin: 0 auto;" > `;
         } else if (record.map_polyline) {
             content = `
-                <div id="big-map" style="height: 100vh; width: 100vw;"></div>
+    < div id = "big-map" style = "height: 100vh; width: 100vw;" ></div >
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
                 <script>
