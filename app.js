@@ -434,10 +434,11 @@ const app = {
 
         await this.fetchData();
         const userRecords = this.records.filter(r => r.username === this.user.username);
+        const approvedRecords = userRecords.filter(r => r.status === 'approved');
         const top5 = userRecords.slice(0, 5);
 
-        const totalDist = userRecords.reduce((sum, r) => sum + (r.distance || 0), 0);
-        const totalElev = userRecords.reduce((sum, r) => sum + Math.round(r.elevation || 0), 0);
+        const totalDist = approvedRecords.reduce((sum, r) => sum + (r.distance || 0), 0);
+        const totalElev = approvedRecords.reduce((sum, r) => sum + Math.round(r.elevation || 0), 0);
 
         document.getElementById('stats-total-dist').innerText = totalDist.toFixed(1);
         document.getElementById('stats-total-elev').innerText = totalElev.toLocaleString();
@@ -459,6 +460,7 @@ const app = {
                         <span>${Math.round(r.elevation)}m</span>
                         ${statusBadge}
                         <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(r.created_at).toLocaleDateString()}</div>
+                        ${r.status === 'rejected' && r.rejection_reason ? `<div style="font-size: 0.75rem; color: #ff4444; margin-top: 4px; padding: 4px 8px; background: rgba(255,0,0,0.1); border-radius: 4px;">사유: ${r.rejection_reason}</div>` : ''}
                     </div>
                 </div>
             `;
@@ -802,6 +804,7 @@ const app = {
                                 <button class="btn btn-secondary" style="border-color: rgba(255,153,0,0.3); color: #ff9900; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.openEditModal('${r.id}')">수정</button>
                                 <button class="btn btn-secondary" style="border-color: rgba(255,0,0,0.3); color: #ff4444; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="app.deleteRecord('${r.id}')">삭제</button>
                             </div>
+                            ${r.rejection_reason ? `<div style="font-size: 0.7rem; color: #ff4444; margin-top: 4px;">사유: ${r.rejection_reason}</div>` : ''}
                         </td>
                     </tr>
     `;
@@ -822,10 +825,15 @@ const app = {
     },
 
     async rejectRecord(id) {
-        if (!confirm('이 기록을 반려하시겠습니까?')) return;
+        const reason = prompt('반려 사유를 입력해주세요:');
+        if (reason === null) return; // Cancelled
+
         const { error } = await _supabase
             .from('biku_records')
-            .update({ status: 'rejected' })
+            .update({
+                status: 'rejected',
+                rejection_reason: reason || '사유 없음'
+            })
             .eq('id', id);
 
         if (error) return alert('반려 중 오류가 발생했습니다.');
@@ -841,12 +849,12 @@ const app = {
         const win = window.open("");
         let content = '';
         if (record.image) {
-            content = `< img src = "${record.image}" style = "max-width:100%; height:auto; display: block; margin: 0 auto;" > `;
+            content = `<img src="${record.image}" style="max-width:100%; height:auto; display: block; margin: 0 auto;">`;
         } else if (record.map_polyline) {
             content = `
-    < div id = "big-map" style = "height: 100vh; width: 100vw;" ></div >
+                <div id="big-map" style="height: 100vh; width: 100vw;"></div>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <script>
                     window.onload = () => {
                         const map = L.map('big-map');
@@ -855,7 +863,7 @@ const app = {
                         const line = L.polyline(coords, { color: '#fc4c02', weight: 5 }).addTo(map);
                         map.fitBounds(line.getBounds());
                     }
-                <\/script>
+                </script>
             `;
         } else {
             return alert('이미지나 지도 데이터가 없습니다.');
