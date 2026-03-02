@@ -95,14 +95,16 @@
                     style="border: 2px dashed var(--glass-border); padding: 2rem; text-align: center; border-radius: 15px; margin-bottom: 2rem; cursor: pointer;"
                     onclick="document.getElementById('ride-image').click()">
                     <div id="preview-container" style="display: none; margin-bottom: 1rem;">
-                        <img id="image-preview"
-                            style="max-width: 100%; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                        <div id="thumbnail-list"
+                            style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                            <!-- Thumbnails will be injected here -->
+                        </div>
                     </div>
                     <div id="upload-placeholder">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">📸</div>
-                        <p>이미지를 클릭하여 업로드</p>
+                        <p>이미지를 클릭하여 업로드 (여러 장 가능)</p>
                     </div>
-                    <input type="file" id="ride-image" accept="image/*" style="display: none;"
+                    <input type="file" id="ride-image" accept="image/*" multiple style="display: none;"
                         onchange="app.handleImageUpload(event)">
                 </div>
 
@@ -159,6 +161,10 @@
                     <div class="form-group">
                         <label>최고 속도 (km/h)</label>
                         <input type="number" id="ride-max-speed" placeholder="예: 45.0" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>라이딩 소감 (키워드 업적 달성용!)</label>
+                        <input type="text" id="ride-comment" placeholder="예: 비오는 날 카페 다녀옴!">
                     </div>
 
                     <div class="toggle-group">

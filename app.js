@@ -16,12 +16,14 @@ const app = {
     currentStravaToken: null,
     currentMapPolyline: null,
     currentStravaData: null,
+    currentUploadImage: null, // Keep for backward compatibility/legacy flow
+    currentUploadImages: [], // For multiple photos
 
     // Achievement Definitions
     ACHIEVEMENTS: [
         { id: 'first_ride', title: '첫 페달링', desc: '바이쿠에서 첫 번째 라이딩 인증에 성공했습니다!', icon: '🏁', req: '첫 인증 완료', check: (stats) => stats.count >= 1 },
 
-        // Distance Achievements: "Konkuk Univ to XX"
+        // 🚲 Distance: "Konkuk Univ to XX"
         { id: 'dist_seongsu', title: '건대에서 성수동까지', desc: '아기 라이더의 첫걸음! 성수동 카페거리까지 왔네요.', icon: '🌱', req: '누적 5km', check: (stats) => stats.totalDist >= 5 },
         { id: 'dist_jamsil', title: '건대에서 잠실타워까지', desc: '롯데타워가 코앞에! 한강 다리 하나를 건넜습니다.', icon: '🗼', req: '누적 10km', check: (stats) => stats.totalDist >= 10 },
         { id: 'dist_namsan', title: '건대에서 남산까지', desc: '서울의 중심 남산까지! 이제 제법 장거리가 익숙해집니다.', icon: '🏯', req: '누적 20km', check: (stats) => stats.totalDist >= 20 },
@@ -32,7 +34,7 @@ const app = {
         { id: 'dist_busan', title: '건대에서 부산까지', desc: '국토종주 달성! 건대에서 부산까지 이어진 위대한 여정.', icon: '⛱️', req: '누적 600km', check: (stats) => stats.totalDist >= 600 },
         { id: 'dist_grand', title: '국토종주 왕복', desc: '바이쿠의 전설. 한반도를 자전거로 왕복한 마스터입니다.', icon: '👑', req: '누적 1,200km', check: (stats) => stats.totalDist >= 1200 },
 
-        // Elevation Achievements: Mountain Metaphors
+        // 🧗 Elevation: Mountain Metaphors
         { id: 'elev_namsan', title: '서울의 상징 남산', desc: '서울 라이더의 성지, 남산의 높이를 정복했습니다.', icon: '🌳', req: '누적 획득고도 270m', check: (stats) => stats.totalElev >= 270 },
         { id: 'elev_achasan', title: '건대 뒷산 아차산', desc: '우리 학교 뒷산, 아차산을 가뿐히 넘었습니다.', icon: '🌿', req: '누적 획득고도 300m', check: (stats) => stats.totalElev >= 300 },
         { id: 'elev_bukhansan', title: '거대한 암벽 북한산', desc: '서울 최고봉 백운대의 높이를 돌파했습니다.', icon: '🧗', req: '누적 획득고도 836m', check: (stats) => stats.totalElev >= 836 },
@@ -41,15 +43,79 @@ const app = {
         { id: 'elev_kilimanjaro', title: '아프리카의 꽃 킬리만자로', desc: '적도의 눈, 킬리만자로 정상에 도달한 기분입니다.', icon: '🦒', req: '누적 획득고도 5,895m', check: (stats) => stats.totalElev >= 5895 },
         { id: 'elev_everest', title: '세계의 지붕 에베레스트', desc: '지구상 가장 높은 곳까지 올랐습니다. 불가능이란 없습니다.', icon: '🏔️', req: '누적 획득고도 8,848m', check: (stats) => stats.totalElev >= 8848 },
 
-        // Special Stats & Others
-        { id: 'diligent_biku', title: '성실한 바이쿠', desc: '꾸준함이 실력입니다. 총 50회의 라이딩을 인증했습니다.', icon: '🥇', req: '인증 50회', check: (stats) => stats.count >= 50 },
-        { id: 'beginner_1', title: '초보 라이더의 시작', desc: '자전거와 친해지는 중! 누적 50km를 달성했습니다.', icon: '🐣', req: '누적 50km', check: (stats) => stats.totalDist >= 50 },
-        { id: 'safety_first', title: '안전 제일', desc: '여유롭고 안전한 라이딩을 즐깁니다. (평속 20km/h 미만, 10km 이상)', icon: '⛑️', req: '평속 < 20km/h & 거리 > 10km', check: (stats, records) => records.some(r => r.average_speed > 0 && r.average_speed < 20 && r.distance >= 10) },
-        { id: 'tt_fan', title: '따릉이 대장', desc: '공공자전거의 진정한 팬! 따릉이로 10회 인증했습니다.', icon: '🚲', req: '따릉이 인증 10회', check: (stats) => stats.ttCount >= 10 },
+        // ⚡ Speed: Average (Minimum 10km)
+        { id: 'avg_10', title: '여유로운 산책', desc: '풍경을 온전히 눈에 담으며 천천히 달립니다.', icon: '🐢', req: '평속 10km/h 이상 (10km+)', check: (stats, records) => records.some(r => r.distance >= 10 && r.average_speed >= 10) },
+        { id: 'avg_20', title: '유람형 라이더', desc: '풍경을 즐기며 여유롭게 달립니다.', icon: '🚲', req: '평속 20km/h 이상 (10km+)', check: (stats, records) => records.some(r => r.distance >= 10 && r.average_speed >= 20) },
+        { id: 'avg_25', title: '준족의 라이더', desc: '이제 제법 페달링에 힘이 실리네요.', icon: '🏃', req: '평속 25km/h 이상 (10km+)', check: (stats, records) => records.some(r => r.distance >= 10 && r.average_speed >= 25) },
+        { id: 'avg_30', title: '폭주 기관차', desc: '동호인 상급 수준의 속도! 엄청난 엔진입니다.', icon: '🚄', req: '평속 30km/h 이상 (10km+)', check: (stats, records) => records.some(r => r.distance >= 10 && r.average_speed >= 30) },
+        { id: 'avg_35', title: '프로의 영역', desc: '사이클 선수에 버금가는 실력입니다.', icon: '🏎️', req: '평속 35km/h 이상 (10km+)', check: (stats, records) => records.some(r => r.distance >= 10 && r.average_speed >= 35) },
+        { id: 'avg_40', title: '인간의 한계 돌파', desc: '자전거와 하나가 되어 바람을 가릅니다.', icon: '🚀', req: '평속 40km/h 이상 (10km+)', check: (stats, records) => records.some(r => r.distance >= 10 && r.average_speed >= 40) },
 
-        // Strava-only achievements
-        { id: 'strava_ilgamho', title: '일감호 라이더', desc: '건국대의 상징, 일감호를 돌았습니다. (Strava 인증 전용)', icon: 'Swan', icon: '🦢', req: '일감호 경로 포함 (Strava)', check: (stats, records) => records.some(r => r.map_polyline && r.status === 'approved') },
-        { id: 'strava_master', title: 'GPS 마스터', desc: '지도로 기록을 남기는 완벽주의자. Strava 인증 10회 돌파!', icon: '🛰️', req: 'Strava 인증 10회', check: (stats) => stats.stravaCount >= 10 }
+        // 🔥 Speed: Max (Instantaneous)
+        { id: 'top_40', title: '다운힐의 시작', desc: '속도감이 느껴지기 시작하는 시점입니다.', icon: '📉', req: '최고속도 40km/h 이상', check: (stats) => stats.maxTopSpeed >= 40 },
+        { id: 'top_50', title: '스피드스터', desc: '도로 위를 미끄러지듯 질주합니다.', icon: '🏎️', req: '최고속도 50km/h 이상', check: (stats) => stats.maxTopSpeed >= 50 },
+        { id: 'top_60', title: '중력 가속도', desc: '엄청난 공포와 희열이 공존하는 속도!', icon: '☄️', req: '최고속도 60km/h 이상', check: (stats) => stats.maxTopSpeed >= 60 },
+        { id: 'top_70', title: '음속의 벽', desc: '바람 소리가 들리지 않을 정도의 쾌속!', icon: '⚡', req: '최고속도 70km/h 이상', check: (stats) => stats.maxTopSpeed >= 70 },
+        { id: 'top_80', title: '자유 낙하', desc: '이 정도면 거의 나는 수준입니다.', icon: '�', req: '최고속도 80km/h 이상', check: (stats) => stats.maxTopSpeed >= 80 },
+
+        // 📅 Consistency: Time & Patterns
+        { id: 'early_bird', title: '아침을 여는 라이더', desc: '모두가 잠든 새벽, 가장 먼저 도로를 깨웁니다.', icon: '🌅', req: '오전 6시 이전 라이딩 인증', check: (stats, records) => records.some(r => new Date(r.created_at).getHours() < 6) },
+        { id: 'night_owl', title: '심야의 질주', desc: '고요한 밤 공기를 가르며 달리는 낭만 라이더.', icon: '🌙', req: '오후 10시 이후 라이딩 인증', check: (stats, records) => records.some(r => new Date(r.created_at).getHours() >= 22) },
+        { id: 'streak_7', title: '일주일의 기적', desc: '7일 연속 인증! 불굴의 의지를 보여주셨습니다.', icon: '🔥', req: '7일 연속 라이딩 인증', check: (stats) => stats.maxStreak >= 7 },
+        { id: 'weekend_warrior', title: '주말의 전사', desc: '주말을 불태웠습니다! 토요일과 일요일 모두 인증 완료.', icon: '🗡️', req: '토, 일요일 라이딩 모두 포함', check: (stats) => stats.hasWeekend },
+        {
+            id: 'monthly_master', title: '한 달의 성실함', desc: '한 달 동안 20번의 인증! 꾸준함이 곧 실력입니다.', icon: '🏆', req: '한 달 내 20일 이상 인증', check: (stats, records) => {
+                const now = new Date();
+                const thisMonth = records.filter(r => {
+                    const d = new Date(r.created_at);
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                });
+                const uniqueDays = new Set(thisMonth.map(r => new Date(r.created_at).toDateString()));
+                return uniqueDays.size >= 20;
+            }
+        },
+
+        // 🛠️ Ttareungyi: Deep Dive
+        { id: 'tt_bugak', title: '따릉이로 북악 정복', desc: '무거운 따릉이로 오르막을 정복했습니다. 대단한 엔진!', icon: '⛰️', req: '따릉이로 획득고도 150m 이상 기록', check: (stats, records) => records.some(r => r.is_ttareungyi && r.elevation >= 150) },
+        { id: 'tt_limit_30', title: '따릉이 한계 돌파', desc: '따릉이로 30km를? 웬만한 로드보다 빠르시네요.', icon: '⛓️', req: '따릉이로 단일 30km 이상 주행', check: (stats, records) => records.some(r => r.is_ttareungyi && r.distance >= 30) },
+        { id: 'tt_racer', title: '따릉이 레이서', desc: '따릉이로 평속 20을 유지하는 진정한 괴물 라이더.', icon: '💨', req: '따릉이 평속 20km/h 이상 (5km+)', check: (stats, records) => records.some(r => r.is_ttareungyi && r.distance >= 5 && r.average_speed >= 20) },
+
+        // 💬 Social: Community Engagement
+        { id: 'ambassador', title: '바이쿠 홍보대사', desc: '커뮤니티를 활기차게 만드는 일등공신입니다.', icon: '�', req: '게시글 10개 이상 작성', check: (stats) => stats.postCount >= 10 },
+        { id: 'communicator', title: '친절한 라이더', desc: '따뜻한 댓글로 소통하는 바이쿠의 마음씨 좋은 라이더.', icon: '💬', req: '댓글 30개 이상 작성', check: (stats) => stats.commentCount >= 30 },
+        {
+            id: 'influencer', title: '인기 스타', desc: '내 글에 많은 사람들이 모여드네요! (게시글 당 댓글 10개 이상)', icon: '⭐', req: '단일 게시글 댓글 10개 이상 달림', check: (stats, records) => {
+                return app.posts.some(p => {
+                    if (p.username !== app.user.username) return false;
+                    const count = app.comments.filter(c => c.post_id === p.id).length;
+                    return count >= 10;
+                });
+            }
+        },
+
+        // 🏆 Challenge: Epic Rides
+        { id: 'randonneur_200', title: '란도너스의 시작', desc: '자전거와 하루 종일 하나가 된 날입니다. 200km 주행!', icon: '🚵', req: '단일 200km 이상 주행', check: (stats) => stats.maxSingleDist >= 200 },
+        { id: 'iron_legs', title: '강철 다리', desc: '업힐 요정? 아니, 업힐 괴물! 단일 1,000m 정복.', icon: '🦵', req: '단일 획득고도 1,000m 이상', check: (stats, records) => records.some(r => r.elevation >= 1000) },
+        { id: 'everest_1day', title: '에베레스트 하루 정복', desc: '단 하루 만에 에베레스트 높이를 제패했습니다. 전설의 등극.', icon: '🧊', req: '단일 획득고도 8,848m 이상', check: (stats, records) => records.some(r => r.elevation >= 8848) },
+
+        // 🍊 Strava & Others
+        { id: 'strava_ilgamho', title: '일감호 라이더', desc: '건국대의 상징, 일감호를 돌았습니다. (Strava 인증 전용)', icon: '🦢', req: '일감호 경로 포함 (Strava)', check: (stats, records) => records.some(r => r.map_polyline && r.status === 'approved') },
+        { id: 'strava_master', title: 'GPS 마스터', desc: '지도로 기록을 남기는 완벽주의자. Strava 인증 10회 돌파!', icon: '🛰️', req: 'Strava 인증 10회', check: (stats) => stats.stravaCount >= 10 },
+
+        // 🎠 Fun & Life
+        { id: 'coffee_hunter', title: '☕ 커피 헌터', desc: '자전거와 커피는 떼려야 뗄 수 없는 사이! 라이딩 후 카페를 방문했습니다.', icon: '☕', req: '소감에 "카페" 또는 "커피" 포함', check: (stats, records) => records.some(r => r.comment && (r.comment.includes('카페') || r.comment.includes('커피'))) },
+        { id: 'weather_proof', title: '☔ 기상청을 이긴자', desc: '궂은 날씨도 라이더의 열정을 막을 순 없습니다.', icon: '☔', req: '소감에 "비" 또는 "눈" 포함', check: (stats, records) => records.some(r => r.comment && (r.comment.includes('비') || r.comment.includes('눈') || r.comment.includes('우천'))) },
+        { id: 'snack_time', title: '🥪 보급형 라이더', desc: '라이딩의 핵심은 역시 보급! 편의점 꿀맛 경험을 공유하셨네요.', icon: '🥪', req: '소감에 "편의점", "라면", "빵" 포함', check: (stats, records) => records.some(r => r.comment && (r.comment.includes('편의점') || r.comment.includes('라면') || r.comment.includes('빵') || r.comment.includes('보급'))) },
+        { id: 'photographer', title: '📸 베스트 샷', desc: '라이딩의 추억을 사진으로 아름답게 남기는 아티스트.', icon: '📸', req: '사진 포함 인증 20회 이상', check: (stats) => stats.photoCount >= 20 },
+        {
+            id: 'anniversary_100', title: '🎈 백일의 기적', desc: '바이쿠와 함께한지 어느덧 100일! 꾸준한 열정에 박수를 보냅니다.', icon: '🎈', req: '첫 라이딩 인증 후 100일 경과', check: (stats, records) => {
+                if (records.length === 0) return false;
+                const firstRide = new Date(Math.min(...records.map(r => new Date(r.created_at))));
+                const daysDiff = (new Date() - firstRide) / (1000 * 60 * 60 * 24);
+                return daysDiff >= 100;
+            }
+        },
+        { id: 'gps_artist', title: '🗺️ 지도의 화가', desc: '지도로 예술을 만듭니다. 완벽한 GPS 로그의 소유자.', icon: '🎨', req: 'Strava 인증 20회 이상', check: (stats) => stats.stravaCount >= 20 }
     ],
 
     async init() {
@@ -344,20 +410,35 @@ const app = {
     },
 
     handleImageUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+        const files = Array.from(event.target.files);
+        if (files.length === 0) return;
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const imageData = e.target.result;
-            const preview = document.getElementById('image-preview');
-            preview.src = imageData;
-            document.getElementById('preview-container').style.display = 'block';
-            document.getElementById('upload-placeholder').style.display = 'none';
-            this.currentUploadImage = imageData;
-            this.simulateExtraction();
-        };
-        reader.readAsDataURL(file);
+        const thumbnailList = document.getElementById('thumbnail-list');
+        thumbnailList.innerHTML = '';
+        this.currentUploadImages = [];
+
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageData = e.target.result;
+                this.currentUploadImages.push(imageData);
+                if (index === 0) this.currentUploadImage = imageData;
+
+                const thumb = document.createElement('img');
+                thumb.src = imageData;
+                thumb.style.width = '80px';
+                thumb.style.height = '80px';
+                thumb.style.objectFit = 'cover';
+                thumb.style.borderRadius = '8px';
+                thumb.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+                thumbnailList.appendChild(thumb);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('preview-container').style.display = 'block';
+        document.getElementById('upload-placeholder').style.display = 'none';
+        this.simulateExtraction();
     },
 
     simulateExtraction() {
@@ -382,11 +463,39 @@ const app = {
 
     resetUpload() {
         this.currentUploadImage = null;
+        this.currentUploadImages = [];
         this.currentMapPolyline = null;
         this.currentStravaData = null;
 
-        // Reset read-only status and values
-        const ids = ['ride-date', 'ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
+        document.getElementById('ride-image').value = '';
+        const thumbList = document.getElementById('thumbnail-list');
+        if (thumbList) thumbList.innerHTML = '';
+
+        const previewCont = document.getElementById('preview-container');
+        if (previewCont) previewCont.style.display = 'none';
+
+        const placeholder = document.getElementById('upload-placeholder');
+        if (placeholder) placeholder.style.display = 'block';
+
+        const recordForm = document.getElementById('record-form');
+        if (recordForm) recordForm.style.display = 'none';
+
+        const extractionStatus = document.getElementById('extraction-status');
+        if (extractionStatus) extractionStatus.style.display = 'none';
+
+        const stravaSection = document.getElementById('strava-sync-section');
+        if (stravaSection) stravaSection.style.display = 'block';
+
+        const uploadArea = document.getElementById('upload-area');
+        if (uploadArea) {
+            uploadArea.style.display = 'block';
+            uploadArea.style.pointerEvents = 'auto';
+        }
+
+        const mapPreview = document.getElementById('map-preview');
+        if (mapPreview) mapPreview.style.display = 'none';
+
+        const ids = ['ride-date', 'ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed', 'ride-comment'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -396,14 +505,6 @@ const app = {
                 el.style.cursor = 'text';
             }
         });
-
-        const preview = document.getElementById('image-preview');
-        if (preview) preview.src = '';
-        const previewCont = document.getElementById('preview-container');
-        if (previewCont) previewCont.style.display = 'none';
-
-        const mapCont = document.getElementById('map-preview');
-        if (mapCont) mapCont.style.display = 'none';
 
         this.navigate('records');
     },
@@ -417,6 +518,7 @@ const app = {
         const movingTimeMins = parseFloat(document.getElementById('ride-time').value) || 0;
         const avgSpeed = parseFloat(document.getElementById('ride-avg-speed').value) || 0;
         const maxSpeed = parseFloat(document.getElementById('ride-max-speed').value) || 0;
+        const comment = document.getElementById('ride-comment') ? document.getElementById('ride-comment').value : '';
 
         if (!rideDate || isNaN(distance) || isNaN(elevation)) return alert('일시, 거리, 고도를 입력해주세요.');
 
@@ -429,11 +531,13 @@ const app = {
                 username: this.user.username,
                 distance,
                 elevation: Math.round(elevation),
-                image: this.currentUploadImage,
+                image: this.currentUploadImage, // Legacy support
+                images: this.currentUploadImages, // Multiple photos (JSONB)
                 map_polyline: this.currentMapPolyline,
                 moving_time: movingTimeMins * 60,
                 average_speed: Number(avgSpeed),
                 max_speed: Number(maxSpeed),
+                comment,
                 status,
                 is_ttareungyi: document.getElementById('is-ttareungyi').checked,
                 created_at: new Date(rideDate).toISOString()
@@ -442,7 +546,7 @@ const app = {
         if (error) return alert('기록 저장 중 오류가 발생했습니다.');
 
         // Success cleanup
-        const ids = ['ride-date', 'ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed'];
+        const ids = ['ride-date', 'ride-distance', 'ride-elevation', 'ride-time', 'ride-avg-speed', 'ride-max-speed', 'ride-comment'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -692,14 +796,47 @@ const app = {
     },
 
     calculateUserStats(approvedRecords) {
-        return {
+        const stats = {
             count: approvedRecords.length,
             totalDist: approvedRecords.reduce((sum, r) => sum + (r.distance || 0), 0),
             totalElev: approvedRecords.reduce((sum, r) => sum + (r.elevation || 0), 0),
             maxSingleDist: Math.max(0, ...approvedRecords.map(r => r.distance || 0)),
+            maxAvgSpeed: Math.max(0, ...approvedRecords.map(r => r.average_speed || 0)),
+            maxTopSpeed: Math.max(0, ...approvedRecords.map(r => r.max_speed || 0)),
             ttCount: approvedRecords.filter(r => r.is_ttareungyi).length,
-            stravaCount: approvedRecords.filter(r => r.map_polyline).length
+            stravaCount: approvedRecords.filter(r => r.map_polyline).length,
+            postCount: this.posts.filter(p => p.username === this.user.username).length,
+            commentCount: this.comments.filter(c => c.username === this.user.username).length,
+            photoCount: approvedRecords.filter(r => r.image).length,
+            maxStreak: 0,
+            hasWeekend: false
         };
+
+        // Streak Calculation
+        if (approvedRecords.length > 0) {
+            const dates = [...new Set(approvedRecords.map(r => new Date(r.created_at).toDateString()))]
+                .map(d => new Date(d))
+                .sort((a, b) => b - a);
+
+            let currentStreak = 1;
+            let maxStr = 1;
+            for (let i = 0; i < dates.length - 1; i++) {
+                const diff = (dates[i] - dates[i + 1]) / (1000 * 60 * 60 * 24);
+                if (diff === 1) {
+                    currentStreak++;
+                } else {
+                    maxStr = Math.max(maxStr, currentStreak);
+                    currentStreak = 1;
+                }
+            }
+            stats.maxStreak = Math.max(maxStr, currentStreak);
+
+            // Weekend Check (Sat AND Sun both certified)
+            const days = new Set(approvedRecords.map(r => new Date(r.created_at).getDay()));
+            stats.hasWeekend = days.has(0) && days.has(6);
+        }
+
+        return stats;
     },
 
     async renderAchievements() {
@@ -754,7 +891,8 @@ const app = {
                             <div id="my-map-thumb-${r.id}" style="height: 150px; border-radius: 10px; background: rgba(0,0,0,0.3); margin-bottom: 1rem; overflow: hidden; display: ${r.map_polyline && !r.image ? 'block' : 'none'}"></div>
                             ${r.image ? `<img src="${r.image}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 10px; margin-bottom: 1rem;">` : ''}
                             ${!r.image && !r.map_polyline ? `<div style="height: 150px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">No Media</div>` : ''}
-                            <div style="font-weight: 700; margin-bottom: 0.5rem;">${new Date(r.created_at).toLocaleDateString()} 라이딩</div>
+                            <div style="font-weight: 700; margin-bottom: 0.25rem;">${new Date(r.created_at).toLocaleDateString()} 라이딩</div>
+                            ${r.comment ? `<div style="font-size: 0.8rem; color: var(--secondary); margin-bottom: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">"${r.comment}"</div>` : ''}
                             <div style="font-size: 0.9rem; color: var(--text-muted); display: flex; justify-content: space-between;">
                                 <span>${r.distance}km / ${r.elevation}m</span>
                                 <span style="color: ${statusColor}">${statusText}</span>
@@ -1009,7 +1147,10 @@ const app = {
                 return `
                     <tr>
                         <td>${r.username} ${statusInfo}</td>
-                        <td>${r.distance}km / ${r.elevation}m</td>
+                        <td>
+                        <div>${r.distance}km / ${r.elevation}m</div>
+                        ${r.comment ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">소감: ${r.comment}</div>` : ''}
+                    </td>
                         <td>${new Date(r.created_at).toLocaleDateString()}</td>
                         <td>
                             <div style="display: flex; flex-wrap: wrap; gap: 5px;">
