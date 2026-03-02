@@ -20,20 +20,35 @@ const app = {
     // Achievement Definitions
     ACHIEVEMENTS: [
         { id: 'first_ride', title: '첫 페달링', desc: '바이쿠에서 첫 번째 라이딩 인증에 성공했습니다!', icon: '🏁', req: '첫 인증 완료', check: (stats) => stats.count >= 1 },
-        { id: 'diligent_1', title: '성실한 바이쿠 I', desc: '꾸준한 활동의 시작! 총 10회의 라이딩을 인증했습니다.', icon: '🥉', req: '인증 10회', check: (stats) => stats.count >= 10 },
-        { id: 'diligent_2', title: '성실한 바이쿠 II', desc: '진정한 라이더로 거듭나는 중. 총 50회의 라이딩을 인증했습니다.', icon: '🥈', req: '인증 50회', check: (stats) => stats.count >= 50 },
-        { id: 'diligent_3', title: '성실한 바이쿠 III', desc: '바이쿠의 살아있는 전설! 총 100회의 라이딩을 인증했습니다.', icon: '🥇', req: '인증 100회', check: (stats) => stats.count >= 100 },
-        { id: 'distance_master', title: '거리의 거장', desc: '어마어마한 거리를 달렸습니다. 누적 1,000km 돌파!', icon: '🚲', req: '누적 1,000km', check: (stats) => stats.totalDist >= 1000 },
-        { id: 'everest', title: '에베레스트 등정', desc: '하늘을 향한 끝없는 도전. 총 획득고도 8,848m 달성!', icon: '🏔️', req: '누적 고도 8,848m', check: (stats) => stats.totalElev >= 8848 },
-        { id: 'beginner_5km', title: '동네 마실', desc: '자전거와 조금 더 친해졌나요? 단일 라이딩 5km 돌파.', icon: '🏠', req: '단일 5km 주행', check: (stats) => stats.maxSingleDist >= 5 },
-        { id: 'beginner_50km', title: '자전거와 친해지기', desc: '이제 자전거가 낯설지 않네요. 누적 50km 달성!', icon: '🌱', req: '누적 50km', check: (stats) => stats.totalDist >= 50 },
+
+        // Distance Achievements: "Konkuk Univ to XX"
+        { id: 'dist_seongsu', title: '건대에서 성수동까지', desc: '아기 라이더의 첫걸음! 성수동 카페거리까지 왔네요.', icon: '🌱', req: '누적 5km', check: (stats) => stats.totalDist >= 5 },
+        { id: 'dist_jamsil', title: '건대에서 잠실타워까지', desc: '롯데타워가 코앞에! 한강 다리 하나를 건넜습니다.', icon: '🗼', req: '누적 10km', check: (stats) => stats.totalDist >= 10 },
+        { id: 'dist_namsan', title: '건대에서 남산까지', desc: '서울의 중심 남산까지! 이제 제법 장거리가 익숙해집니다.', icon: '🏯', req: '누적 20km', check: (stats) => stats.totalDist >= 20 },
+        { id: 'dist_bugak', title: '건대에서 북악까지', desc: '업힐 성지 북악까지! 엔진이 점점 강력해지고 있어요.', icon: '⛰️', req: '누적 40km', check: (stats) => stats.totalDist >= 40 },
+        { id: 'dist_incheon', title: '건대에서 인천앞바다까지', desc: '드디어 바다가 보입니다! 서해갑문까지의 거리 돌파.', icon: '🌊', req: '누적 60km', check: (stats) => stats.totalDist >= 60 },
+        { id: 'dist_chuncheon', title: '건대에서 춘천까지', desc: '경기관계를 벗어나 강원도까지! 춘천 닭갈비 한 그릇 어떠세요?', icon: '🍗', req: '누적 100km', check: (stats) => stats.totalDist >= 100 },
+        { id: 'dist_daejeon', title: '건대에서 대전까지', desc: '충청도를 지나 국토의 절반을 향해! 성심당이 머지 않았습니다.', icon: '🥖', req: '누적 200km', check: (stats) => stats.totalDist >= 200 },
+        { id: 'dist_busan', title: '건대에서 부산까지', desc: '국토종주 달성! 건대에서 부산까지 이어진 위대한 여정.', icon: '⛱️', req: '누적 600km', check: (stats) => stats.totalDist >= 600 },
+        { id: 'dist_grand', title: '국토종주 왕복', desc: '바이쿠의 전설. 한반도를 자전거로 왕복한 마스터입니다.', icon: '👑', req: '누적 1,200km', check: (stats) => stats.totalDist >= 1200 },
+
+        // Elevation Achievements: Mountain Metaphors
+        { id: 'elev_namsan', title: '서울의 상징 남산', desc: '서울 라이더의 성지, 남산의 높이를 정복했습니다.', icon: '🌳', req: '누적 획득고도 270m', check: (stats) => stats.totalElev >= 270 },
+        { id: 'elev_achasan', title: '건대 뒷산 아차산', desc: '우리 학교 뒷산, 아차산을 가뿐히 넘었습니다.', icon: '🌿', req: '누적 획득고도 300m', check: (stats) => stats.totalElev >= 300 },
+        { id: 'elev_bukhansan', title: '거대한 암벽 북한산', desc: '서울 최고봉 백운대의 높이를 돌파했습니다.', icon: '🧗', req: '누적 획득고도 836m', check: (stats) => stats.totalElev >= 836 },
+        { id: 'elev_hallasan', title: '남한 최고봉 한라산', desc: '구름 위를 달리는 라이더! 백록담 높이를 돌파했습니다.', icon: '🌋', req: '누적 획득고도 1,947m', check: (stats) => stats.totalElev >= 1947 },
+        { id: 'elev_fuji', title: '일본의 영산 후지산', desc: '3,776m의 고지! 이제 웬만한 오르막은 우습네요.', icon: '❄️', req: '누적 획득고도 3,776m', check: (stats) => stats.totalElev >= 3776 },
+        { id: 'elev_kilimanjaro', title: '아프리카의 꽃 킬리만자로', desc: '적도의 눈, 킬리만자로 정상에 도달한 기분입니다.', icon: '🦒', req: '누적 획득고도 5,895m', check: (stats) => stats.totalElev >= 5895 },
+        { id: 'elev_everest', title: '세계의 지붕 에베레스트', desc: '지구상 가장 높은 곳까지 올랐습니다. 불가능이란 없습니다.', icon: '🏔️', req: '누적 획득고도 8,848m', check: (stats) => stats.totalElev >= 8848 },
+
+        // Special Stats & Others
+        { id: 'diligent_biku', title: '성실한 바이쿠', desc: '꾸준함이 실력입니다. 총 50회의 라이딩을 인증했습니다.', icon: '🥇', req: '인증 50회', check: (stats) => stats.count >= 50 },
+        { id: 'beginner_1', title: '초보 라이더의 시작', desc: '자전거와 친해지는 중! 누적 50km를 달성했습니다.', icon: '🐣', req: '누적 50km', check: (stats) => stats.totalDist >= 50 },
         { id: 'safety_first', title: '안전 제일', desc: '여유롭고 안전한 라이딩을 즐깁니다. (평속 20km/h 미만, 10km 이상)', icon: '⛑️', req: '평속 < 20km/h & 거리 > 10km', check: (stats, records) => records.some(r => r.average_speed > 0 && r.average_speed < 20 && r.distance >= 10) },
-        { id: 'tt_fan', title: '따릉이 대장', desc: '공공자전거의 진정한 팬! 따릉이로 10회 인증했습니다.', icon: '🛒', req: '따릉이 인증 10회', check: (stats) => stats.ttCount >= 10 },
-        { id: 'tt_pro', title: '최강의 따릉이', desc: '따릉이로 한계를 시험합니다. 단일 20km 주행 성공!', icon: '💪', req: '따릉이 단일 20km', check: (stats, records) => records.some(r => r.is_ttareungyi && r.distance >= 20) },
-        { id: 'tt_climber', title: '따릉이 업힐러', desc: '무거운 따릉이로 오르막을 정복했습니다. 고도 100m 달성!', icon: '🧗', req: '따릉이 고도 100m', check: (stats, records) => records.some(r => r.is_ttareungyi && r.elevation >= 100) },
+        { id: 'tt_fan', title: '따릉이 대장', desc: '공공자전거의 진정한 팬! 따릉이로 10회 인증했습니다.', icon: '🚲', req: '따릉이 인증 10회', check: (stats) => stats.ttCount >= 10 },
+
         // Strava-only achievements
-        { id: 'strava_ilgamho', title: '일감호 라이더', desc: '건국대의 상징, 일감호를 돌았습니다. (Strava 인증 전용)', icon: '🦢', req: '일감호 경로 포함 (Strava)', check: (stats, records) => records.some(r => r.map_polyline && r.status === 'approved') }, // Simplified check for now
-        { id: 'strava_hanriver', title: '한강 유람', desc: '시원한 한강 바람과 함께 달렸습니다. (Strava 인증 전용)', icon: '🌊', req: '한강 경로 포함 (Strava)', check: (stats, records) => records.some(r => r.map_polyline && r.status === 'approved') }, // Simplified
+        { id: 'strava_ilgamho', title: '일감호 라이더', desc: '건국대의 상징, 일감호를 돌았습니다. (Strava 인증 전용)', icon: 'Swan', icon: '🦢', req: '일감호 경로 포함 (Strava)', check: (stats, records) => records.some(r => r.map_polyline && r.status === 'approved') },
         { id: 'strava_master', title: 'GPS 마스터', desc: '지도로 기록을 남기는 완벽주의자. Strava 인증 10회 돌파!', icon: '🛰️', req: 'Strava 인증 10회', check: (stats) => stats.stravaCount >= 10 }
     ],
 
