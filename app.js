@@ -17,6 +17,26 @@ const app = {
     currentMapPolyline: null,
     currentStravaData: null,
 
+    // Achievement Definitions
+    ACHIEVEMENTS: [
+        { id: 'first_ride', title: '첫 페달링', desc: '바이쿠에서 첫 번째 라이딩 인증에 성공했습니다!', icon: '🏁', req: '첫 인증 완료', check: (stats) => stats.count >= 1 },
+        { id: 'diligent_1', title: '성실한 바이쿠 I', desc: '꾸준한 활동의 시작! 총 10회의 라이딩을 인증했습니다.', icon: '🥉', req: '인증 10회', check: (stats) => stats.count >= 10 },
+        { id: 'diligent_2', title: '성실한 바이쿠 II', desc: '진정한 라이더로 거듭나는 중. 총 50회의 라이딩을 인증했습니다.', icon: '🥈', req: '인증 50회', check: (stats) => stats.count >= 50 },
+        { id: 'diligent_3', title: '성실한 바이쿠 III', desc: '바이쿠의 살아있는 전설! 총 100회의 라이딩을 인증했습니다.', icon: '🥇', req: '인증 100회', check: (stats) => stats.count >= 100 },
+        { id: 'distance_master', title: '거리의 거장', desc: '어마어마한 거리를 달렸습니다. 누적 1,000km 돌파!', icon: '🚲', req: '누적 1,000km', check: (stats) => stats.totalDist >= 1000 },
+        { id: 'everest', title: '에베레스트 등정', desc: '하늘을 향한 끝없는 도전. 총 획득고도 8,848m 달성!', icon: '🏔️', req: '누적 고도 8,848m', check: (stats) => stats.totalElev >= 8848 },
+        { id: 'beginner_5km', title: '동네 마실', desc: '자전거와 조금 더 친해졌나요? 단일 라이딩 5km 돌파.', icon: '🏠', req: '단일 5km 주행', check: (stats) => stats.maxSingleDist >= 5 },
+        { id: 'beginner_50km', title: '자전거와 친해지기', desc: '이제 자전거가 낯설지 않네요. 누적 50km 달성!', icon: '🌱', req: '누적 50km', check: (stats) => stats.totalDist >= 50 },
+        { id: 'safety_first', title: '안전 제일', desc: '여유롭고 안전한 라이딩을 즐깁니다. (평속 20km/h 미만, 10km 이상)', icon: '⛑️', req: '평속 < 20km/h & 거리 > 10km', check: (stats, records) => records.some(r => r.average_speed > 0 && r.average_speed < 20 && r.distance >= 10) },
+        { id: 'tt_fan', title: '따릉이 대장', desc: '공공자전거의 진정한 팬! 따릉이로 10회 인증했습니다.', icon: '🛒', req: '따릉이 인증 10회', check: (stats) => stats.ttCount >= 10 },
+        { id: 'tt_pro', title: '최강의 따릉이', desc: '따릉이로 한계를 시험합니다. 단일 20km 주행 성공!', icon: '💪', req: '따릉이 단일 20km', check: (stats, records) => records.some(r => r.is_ttareungyi && r.distance >= 20) },
+        { id: 'tt_climber', title: '따릉이 업힐러', desc: '무거운 따릉이로 오르막을 정복했습니다. 고도 100m 달성!', icon: '🧗', req: '따릉이 고도 100m', check: (stats, records) => records.some(r => r.is_ttareungyi && r.elevation >= 100) },
+        // Strava-only achievements
+        { id: 'strava_ilgamho', title: '일감호 라이더', desc: '건국대의 상징, 일감호를 돌았습니다. (Strava 인증 전용)', icon: '🦢', req: '일감호 경로 포함 (Strava)', check: (stats, records) => records.some(r => r.map_polyline && r.status === 'approved') }, // Simplified check for now
+        { id: 'strava_hanriver', title: '한강 유람', desc: '시원한 한강 바람과 함께 달렸습니다. (Strava 인증 전용)', icon: '🌊', req: '한강 경로 포함 (Strava)', check: (stats, records) => records.some(r => r.map_polyline && r.status === 'approved') }, // Simplified
+        { id: 'strava_master', title: 'GPS 마스터', desc: '지도로 기록을 남기는 완벽주의자. Strava 인증 10회 돌파!', icon: '🛰️', req: 'Strava 인증 10회', check: (stats) => stats.stravaCount >= 10 }
+    ],
+
     async init() {
         // UI를 먼저 표시하여 "먹통" 현상 방지
         this.navigate('home');
@@ -107,6 +127,7 @@ const app = {
             if (view.startsWith('post-')) await this.renderPostDetail(view.slice(5));
             if (view === 'my-records') await this.renderMyRecords();
             if (view === 'rankings') await this.renderRankings();
+            if (view === 'achievements') await this.renderAchievements();
             if (view === 'admin') await this.renderAdmin();
         }
     },
@@ -399,6 +420,7 @@ const app = {
                 average_speed: Number(avgSpeed),
                 max_speed: Number(maxSpeed),
                 status,
+                is_ttareungyi: document.getElementById('is-ttareungyi').checked,
                 created_at: new Date(rideDate).toISOString()
             }]);
 
@@ -477,6 +499,23 @@ const app = {
                 }, 100);
             }
         });
+
+        // Achievements Summary on Dashboard
+        const summaryCont = document.getElementById('dashboard-achievements-summary');
+        if (summaryCont) {
+            const stats = this.calculateUserStats(approvedRecords);
+            const myAchIds = this.ACHIEVEMENTS.filter(a => a.check(stats, approvedRecords)).map(a => a.id);
+
+            if (myAchIds.length > 0) {
+                summaryCont.innerHTML = this.ACHIEVEMENTS
+                    .filter(a => myAchIds.includes(a.id))
+                    .slice(0, 5)
+                    .map(a => `<span title="${a.title}" style="font-size: 1.5rem; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));">${a.icon}</span>`)
+                    .join('') + (myAchIds.length > 5 ? `<span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;">+${myAchIds.length - 5}</span>` : '');
+            } else {
+                summaryCont.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">활동을 시작하고 업적을 달성해보세요!</p>';
+            }
+        }
     },
 
     async renderActivity() {
@@ -637,6 +676,53 @@ const app = {
         await this.renderPostDetail(postId);
     },
 
+    calculateUserStats(approvedRecords) {
+        return {
+            count: approvedRecords.length,
+            totalDist: approvedRecords.reduce((sum, r) => sum + (r.distance || 0), 0),
+            totalElev: approvedRecords.reduce((sum, r) => sum + (r.elevation || 0), 0),
+            maxSingleDist: Math.max(0, ...approvedRecords.map(r => r.distance || 0)),
+            ttCount: approvedRecords.filter(r => r.is_ttareungyi).length,
+            stravaCount: approvedRecords.filter(r => r.map_polyline).length
+        };
+    },
+
+    async renderAchievements() {
+        if (!this.user) return this.navigate('login');
+        await this.fetchData();
+        const userRecords = this.records.filter(r => r.username === this.user.username && r.status === 'approved');
+        const stats = this.calculateUserStats(userRecords);
+
+        const grid = document.getElementById('achievements-grid');
+        if (!grid) return;
+
+        const achsWithStatus = this.ACHIEVEMENTS.map(a => ({
+            ...a,
+            isAchieved: a.check(stats, userRecords)
+        })).sort((a, b) => b.isAchieved - a.isAchieved);
+
+        grid.innerHTML = achsWithStatus.map(a => `
+            <div class="glass card achievement-card ${a.isAchieved ? '' : 'locked'}" onclick="app.openAchievementModal('${a.id}', ${a.isAchieved})">
+                <div class="achievement-icon">${a.icon}</div>
+                <div class="achievement-title">${a.title}</div>
+                <div class="achievement-status">${a.isAchieved ? '달성 완료' : '미달성'}</div>
+            </div>
+        `).join('');
+    },
+
+    openAchievementModal(id, isAchieved) {
+        const ach = this.ACHIEVEMENTS.find(a => a.id === id);
+        if (!ach) return;
+
+        document.getElementById('ach-modal-icon').innerText = ach.icon;
+        document.getElementById('ach-modal-icon').style.filter = isAchieved ? 'drop-shadow(0 0 10px rgba(255,255,255,0.3))' : 'grayscale(1) opacity(0.5)';
+        document.getElementById('ach-modal-title').innerText = ach.title;
+        document.getElementById('ach-modal-desc').innerText = ach.desc;
+        document.getElementById('ach-modal-requirement').innerText = `달성 조건: ${ach.req}`;
+
+        document.getElementById('achievement-modal').style.display = 'flex';
+    },
+
     async renderMyRecords() {
         if (!this.user) return this.navigate('login');
         await this.fetchData();
@@ -727,9 +813,54 @@ const app = {
 
     async renderRankings() {
         await this.fetchData();
-        const approvedRecords = this.records.filter(r => r.status === 'approved');
+
+        // Default filter state if not exists
+        if (!this.rankingFilters) {
+            this.rankingFilters = {
+                period: 'yearly', // 'daily', 'weekly', 'monthly', 'yearly'
+                isTtareungyiOnly: false,
+                selectedMonth: new Date().toISOString().slice(0, 7) // YYYY-MM
+            };
+        }
+
+        const now = new Date();
+        let startDate;
+
+        if (this.rankingFilters.period === 'daily') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        } else if (this.rankingFilters.period === 'weekly') {
+            const day = now.getDay();
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+            startDate = new Date(now.setDate(diff));
+            startDate.setHours(0, 0, 0, 0);
+        } else if (this.rankingFilters.period === 'monthly') {
+            const [year, month] = this.rankingFilters.selectedMonth.split('-').map(Number);
+            startDate = new Date(year, month - 1, 1);
+        } else { // yearly
+            startDate = new Date(now.getFullYear(), 0, 1);
+        }
+
+        let endDate;
+        if (this.rankingFilters.period === 'monthly') {
+            const [year, month] = this.rankingFilters.selectedMonth.split('-').map(Number);
+            endDate = new Date(year, month, 0, 23, 59, 59, 999);
+        } else {
+            endDate = new Date();
+            endDate.setHours(23, 59, 59, 999);
+        }
+
+        const filteredRecords = this.records.filter(r => {
+            if (r.status !== 'approved') return false;
+
+            const recordDate = new Date(r.created_at);
+            const inPeriod = recordDate >= startDate && recordDate <= endDate;
+            const matchTtareungyi = !this.rankingFilters.isTtareungyiOnly || r.is_ttareungyi === true;
+
+            return inPeriod && matchTtareungyi;
+        });
+
         const userStats = {};
-        approvedRecords.forEach(r => {
+        filteredRecords.forEach(r => {
             if (!userStats[r.username]) {
                 userStats[r.username] = { distance: 0, elevation: 0, count: 0 };
             }
@@ -742,8 +873,64 @@ const app = {
             .map(([username, stats]) => ({ username, ...stats }))
             .sort((a, b) => b.distance - a.distance);
 
-        const tbody = document.getElementById('ranking-tbody');
-        if (!tbody) return;
+        const container = document.getElementById('app-content');
+        const rankingView = document.getElementById('view-rankings').content.cloneNode(true);
+
+        // Update Filter UI in the cloned template
+        const filterBar = document.createElement('div');
+        filterBar.className = 'filter-bar';
+
+        // Period Tabs
+        const tabs = document.createElement('div');
+        tabs.className = 'filter-tabs';
+        ['daily', 'weekly', 'monthly', 'yearly'].forEach(p => {
+            const tab = document.createElement('div');
+            tab.className = `filter-tab ${this.rankingFilters.period === p ? 'active' : ''}`;
+            tab.innerText = p === 'daily' ? '일간' : p === 'weekly' ? '주간' : p === 'monthly' ? '월간' : '연간';
+            tab.onclick = () => {
+                this.rankingFilters.period = p;
+                this.renderRankings();
+            };
+            tabs.appendChild(tab);
+        });
+        filterBar.appendChild(tabs);
+
+        // Month Selector (for Monthly)
+        if (this.rankingFilters.period === 'monthly') {
+            const select = document.createElement('select');
+            select.className = 'month-selector';
+            for (let i = 0; i < 6; i++) {
+                const d = new Date();
+                d.setMonth(d.getMonth() - i);
+                const val = d.toISOString().slice(0, 7);
+                const option = document.createElement('option');
+                option.value = val;
+                option.text = `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+                if (val === this.rankingFilters.selectedMonth) option.selected = true;
+                select.appendChild(option);
+            }
+            select.onchange = (e) => {
+                this.rankingFilters.selectedMonth = e.target.value;
+                this.renderRankings();
+            };
+            filterBar.appendChild(select);
+        }
+
+        // Ttareungyi Toggle
+        const ttToggleGroup = document.createElement('div');
+        ttToggleGroup.className = 'toggle-group';
+        ttToggleGroup.style.margin = '0';
+        ttToggleGroup.style.padding = '8px 16px';
+        ttToggleGroup.innerHTML = `
+            <span style="font-size: 0.85rem; font-weight: 600; margin-right: 10px;">🚲 따릉이만</span>
+            <label class="switch" style="width: 40px; height: 20px;">
+                <input type="checkbox" id="rank-ttareungyi-filter" ${this.rankingFilters.isTtareungyiOnly ? 'checked' : ''}>
+                <span class="slider" style="border-radius: 20px;"></span>
+            </label>
+        `;
+        filterBar.appendChild(ttToggleGroup);
+
+        const tbody = rankingView.querySelector('#ranking-tbody');
         tbody.innerHTML = sorted.map((u, i) => {
             let rankClass = '';
             if (i === 0) rankClass = 'rank-badge rank-1';
@@ -760,7 +947,22 @@ const app = {
                     <td>${u.count}회</td>
                 </tr>
             `;
-        }).join('');
+        }).join('') || '<tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--text-muted);">해당 기간의 기록이 없습니다.</td></tr>';
+
+        // Add filter bar before the table
+        const card = rankingView.querySelector('.glass.card');
+        card.insertBefore(filterBar, card.firstChild);
+
+        // Re-attach event listener for the rank-ttareungyi-filter
+        const ttCheckbox = ttToggleGroup.querySelector('#rank-ttareungyi-filter');
+        ttCheckbox.onchange = (e) => {
+            this.rankingFilters.isTtareungyiOnly = e.target.checked;
+            this.renderRankings();
+        };
+
+        const content = document.getElementById('app-content');
+        content.innerHTML = '';
+        content.appendChild(rankingView);
     },
 
     async renderAdmin() {
